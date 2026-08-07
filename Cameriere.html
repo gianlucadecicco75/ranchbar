@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+<title>📱 Cameriere — Ranch Bar</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{--dark:#0f172a;--mid:#1e293b;--accent:#f97316;--green:#22c55e;--gold:#fbbf24;--blue:#3b82f6;--white:#fff;--border:#334155;--text:#e2e8f0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--dark);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+#header{background:#0a0f1e;border-bottom:2px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#header h1{font-size:1rem;font-weight:900;color:var(--white);}
+#sync{font-size:.7rem;padding:3px 8px;border-radius:10px;font-weight:700;margin-left:auto;}
+.ok{background:#14532d;color:#4ade80;} .err{background:#4a1a1a;color:#f87171;}
+
+/* STEP INDICATOR */
+#steps{display:flex;background:var(--mid);flex-shrink:0;}
+.step{flex:1;padding:10px 8px;text-align:center;font-size:.78rem;font-weight:700;color:#475569;border-bottom:3px solid transparent;cursor:pointer;}
+.step.active{color:var(--accent);border-bottom-color:var(--accent);}
+.step.done{color:var(--green);}
+.step-num{display:inline-block;width:20px;height:20px;border-radius:50%;background:#334155;font-size:.7rem;line-height:20px;margin-right:4px;}
+.step.active .step-num{background:var(--accent);color:white;}
+.step.done .step-num{background:var(--green);color:white;}
+
+/* SCHERMI */
+.screen{flex:1;overflow:hidden;display:none;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* SCHERMO 1: TAVOLI */
+#scr-tavoli{overflow-y:auto;padding:12px;}
+.tavoli-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
+.banco-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+.s-lbl{font-size:.72rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700;}
+.btn-tv{background:#1e293b;border:2px solid #334155;border-radius:10px;padding:8px 4px;cursor:pointer;text-align:center;color:var(--white);transition:all .15s;}
+.btn-tv:hover,.btn-tv.sel{background:var(--accent);border-color:var(--accent);}
+.btn-tv .tn{font-size:1rem;font-weight:900;display:block;}
+.btn-tv .ts{font-size:.62rem;color:#94a3b8;}
+.btn-tv.sel .ts{color:rgba(255,255,255,.8);}
+
+/* SCHERMO 2: PRODOTTI */
+#scr-prodotti{}
+#topbar{background:var(--mid);padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;border-bottom:1px solid var(--border);}
+#tavolo-sel-lbl{font-size:.9rem;font-weight:700;color:var(--gold);}
+#cart-badge{background:var(--accent);color:white;border-radius:12px;padding:2px 8px;font-size:.75rem;font-weight:900;margin-left:auto;display:none;}
+#cat-bar{display:flex;flex-wrap:wrap;background:var(--mid);border-bottom:2px solid var(--border);flex-shrink:0;}
+.cat-btn{border:none;background:none;padding:10px 14px;color:#64748b;font-size:.82rem;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+.cat-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+#search-wrap{padding:8px 12px;background:var(--mid);flex-shrink:0;}
+#search-inp{width:100%;padding:8px 14px;border:1.5px solid var(--border);border-radius:20px;background:#0f172a;color:var(--white);font-size:.9rem;outline:none;}
+#search-inp:focus{border-color:var(--accent);}
+#prod-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px;align-content:start;}
+.btn-prod{background:var(--mid);border:1.5px solid var(--border);border-radius:10px;padding:12px 6px;cursor:pointer;text-align:center;transition:all .12s;display:flex;flex-direction:column;gap:5px;}
+.btn-prod:active{transform:scale(.96);border-color:var(--accent);}
+.btn-prod .pn{font-size:.76rem;font-weight:700;color:var(--text);line-height:1.3;}
+.btn-prod .pp{font-size:.95rem;font-weight:900;color:var(--accent);}
+
+/* SCHERMO 3: RIEPILOGO */
+#scr-riepilogo{overflow-y:auto;}
+#riepilogo-header{padding:12px 16px;background:var(--mid);border-bottom:1px solid var(--border);flex-shrink:0;}
+#riepilogo-header h2{font-size:1rem;font-weight:700;}
+#riepilogo-tav{color:var(--gold);font-size:.85rem;margin-top:2px;}
+#riepilogo-items{flex:1;overflow-y:auto;padding:10px;}
+.r-item{display:flex;align-items:center;gap:8px;padding:8px;background:var(--mid);border-radius:9px;margin-bottom:6px;}
+.r-qty{background:var(--accent);color:white;border-radius:7px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.9rem;flex-shrink:0;}
+.r-name{flex:1;font-size:.82rem;font-weight:600;}
+.r-cat{font-size:.68rem;color:#64748b;}
+.r-price{font-size:.82rem;font-weight:700;color:var(--accent);}
+.r-del{background:none;border:none;color:#475569;cursor:pointer;font-size:1rem;padding:4px;}
+.r-del:hover{color:#f87171;}
+.r-sep{font-size:.7rem;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:8px 0 4px;}
+#riepilogo-footer{padding:12px;background:#0a0f1e;border-top:2px solid var(--border);flex-shrink:0;}
+#riepilogo-tot{font-size:1.1rem;font-weight:700;text-align:right;margin-bottom:10px;}
+#btn-invia-tutto{width:100%;background:linear-gradient(135deg,#ea580c,#f97316);color:white;border:none;border-radius:10px;padding:14px;font-size:1rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+#btn-invia-tutto:disabled{opacity:.5;cursor:not-allowed;}
+#btn-invia-tutto.ok{background:linear-gradient(135deg,#16a34a,#22c55e);}
+#btn-nuova{width:100%;background:#1e293b;color:#94a3b8;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:8px;}
+
+/* BOTTOM NAV */
+#botnav{display:flex;background:#0a0f1e;border-top:2px solid var(--border);flex-shrink:0;}
+.bnav{flex:1;padding:10px 4px 12px;border:none;background:none;color:#475569;font-size:.62rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.bnav .bico{font-size:1.4rem;}
+.bnav.active{color:var(--accent);}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>📱 Cameriere — Ranch Bar</h1>
+  <span id="sync" class="ok">🟢</span>
+</div>
+
+<!-- STEP BAR -->
+<div id="steps">
+  <div class="step active" id="step1" onclick="goScreen('tavoli')">
+    <span class="step-num">1</span>Tavolo
+  </div>
+  <div class="step" id="step2" onclick="goScreen('prodotti')">
+    <span class="step-num">2</span>Prodotti
+  </div>
+  <div class="step" id="step3" onclick="goScreen('riepilogo')">
+    <span class="step-num">3</span>Invia
+  </div>
+</div>
+
+<!-- SCHERMO 1: TAVOLI -->
+<div class="screen active" id="scr-tavoli">
+  <div class="s-lbl" style="padding:12px 12px 4px">📋 Seleziona tavolo</div>
+  <div class="tavoli-grid" id="tv-grid"></div>
+  <div class="s-lbl" style="padding:12px 12px 4px">🍺 Banco</div>
+  <div class="banco-grid" id="banco-grid"></div>
+</div>
+
+<!-- SCHERMO 2: PRODOTTI -->
+<div class="screen" id="scr-prodotti">
+  <div id="topbar">
+    <span id="tavolo-sel-lbl">—</span>
+    <span id="cart-badge">0</span>
+  </div>
+  <div id="cat-bar"></div>
+  <div id="search-wrap">
+    <input id="search-inp" type="text" placeholder="🔍 Cerca prodotto..." autocomplete="off">
+  </div>
+  <div id="prod-grid"></div>
+</div>
+
+<!-- SCHERMO 3: RIEPILOGO -->
+<div class="screen" id="scr-riepilogo">
+  <div id="riepilogo-header">
+    <h2>📋 Riepilogo Ordine</h2>
+    <div id="riepilogo-tav">—</div>
+  </div>
+  <div id="riepilogo-items"></div>
+  <div id="riepilogo-footer">
+    <div id="riepilogo-tot"></div>
+    <button id="btn-invia-tutto" onclick="inviaOrdine()">📤 Invia a Cucina &amp; Bar</button>
+    <button id="btn-nuova" onclick="nuovaComanda()">➕ Nuova comanda stesso tavolo</button>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div id="botnav">
+  <button class="bnav active" id="bn1" onclick="goScreen('tavoli')"><span class="bico">🍽️</span>Tavolo</button>
+  <button class="bnav" id="bn2" onclick="goScreen('prodotti')"><span class="bico">📦</span>Prodotti</button>
+  <button class="bnav" id="bn3" onclick="goScreen('riepilogo')"><span class="bico">📋</span>Ordine</button>
+</div>
+
+<script>
+
+const SUPA_URL = 'https://wfvpunzvmoisuaeryffg.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmdnB1bnp2bW9pc3VhZXJ5ZmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMzc5OTAsImV4cCI6MjA5OTYxMzk5MH0.5-dRvP52uRMnOxkiecNIdH1on0N3_2aHEdV8awSYbIQ';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+const CUCINA_CATS = ["Taglieri", "Tostoni", "Insalate", "Burgers", "Panini", "Fritti", "Dolci", "Hot Dog & Salsicce", "Pizze Rosse", "Pizze Bianche", "Stuzzichini & Antipasti", "Cucina & Altro"];
+const BAR_CATS    = ["Birre alla Spina", "Birre in Bottiglia", "Birre Artigianali", "Cocktail", "Superalcolici", "Vini Rossi", "Vini Bianchi", "Vini Rosati", "Vini Spumanti", "Analcolici", "Caffetteria", "Drinks & Cocktail", "Dopocena & Amari", "Grappe Locali", "Bibite"];
+function getReparto(cat){
+  if(CUCINA_CATS.includes(cat)) return 'cucina';
+  if(BAR_CATS.includes(cat))    return 'bar';
+  return 'cucina';
+}
+function fmt(n){ return Number(n).toFixed(2).replace('.',','); }
+
+
+const prodotti = [{"name": "Tagliere Misto Salumi e Formaggi x1 persona", "price": 10.0, "cat": "Taglieri"}, {"name": "Tagliere Misto Salumi e Formaggi x2 persone", "price": 20.0, "cat": "Taglieri"}, {"name": "Tostoni Cotto (prosciutto cotto locale e formaggio)", "price": 8.0, "cat": "Tostoni"}, {"name": "Tostoni Speck e Funghi (Speck di Castrozza, formaggio, funghi misti)", "price": 10.0, "cat": "Tostoni"}, {"name": "Insalata Trentina (verde, funghi, cotto, trentingrana, noci, mais, pomodori, dressing)", "price": 10.0, "cat": "Insalate"}, {"name": "Insalata Pollosa (verde, pollo grigliato, pomodori, rucola, mais, salsa yogurt)", "price": 10.0, "cat": "Insalate"}, {"name": "Only Burger (bovino, lattuga, pomodoro)", "price": 12.0, "cat": "Burgers"}, {"name": "Coco Burger (bovino, cheddar, bacon croccante, lattuga, pomodoro)", "price": 13.0, "cat": "Burgers"}, {"name": "Ranch Burger (bovino, Brie, funghi misti, bacon, lattuga, pomodoro, salsa ranch)", "price": 14.0, "cat": "Burgers"}, {"name": "Fafo Burger (bovino, Primiero fresco, cipolla caramellata, rucola, pomodoro)", "price": 13.0, "cat": "Burgers"}, {"name": "Chicken Burger (pollo fritto, pomodoro, lattuga, maionese)", "price": 14.0, "cat": "Burgers"}, {"name": "Panino Trentino (Speck di Castrozza, Brie, funghi misti)", "price": 10.0, "cat": "Panini"}, {"name": "Panino Paneveggio (prosciutto tirolese, salame nostrano, Primiero fresco, lattuga)", "price": 11.0, "cat": "Panini"}, {"name": "Panino Vegetariano (verdure grigliate, pomodoro, Brie, funghi)", "price": 9.0, "cat": "Panini"}, {"name": "Patatine Fritte", "price": 5.0, "cat": "Fritti"}, {"name": "Jalapenos al Formaggio", "price": 6.0, "cat": "Fritti"}, {"name": "Roesti", "price": 6.0, "cat": "Fritti"}, {"name": "Alette di Pollo", "price": 6.0, "cat": "Fritti"}, {"name": "Dessert della Casa", "price": 5.0, "cat": "Dolci"}, {"name": "Hot Dog (Wurstel San Martino, cheddar, bacon, maionese)", "price": 11.0, "cat": "Hot Dog & Salsicce"}, {"name": "Salsiccia Lucanica fresca e Tosella", "price": 11.0, "cat": "Hot Dog & Salsicce"}, {"name": "Riegele Keller Artigianale 5% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Riegele Keller Artigianale 5% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Lagunitas IPA India Pale Ale 6.2% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Leffe Rossa 8.2% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Leffe Rossa 8.2% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Konig Ludwig Weizen 5.5% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Konig Ludwig Weizen 5.5% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Hacker-Pschorr Munchner Hell 5% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Hacker-Pschorr Munchner Hell 5% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Corona 33cl", "price": 3.0, "cat": "Birre in Bottiglia"}, {"name": "Erdinger Weizen Analcolica 33cl", "price": 3.0, "cat": "Birre in Bottiglia"}, {"name": "Heineken 33cl", "price": 3.0, "cat": "Birre in Bottiglia"}, {"name": "Heineken 50cl", "price": 8.0, "cat": "Birre in Bottiglia"}, {"name": "Birra Artigianale Goldon Ale 50cl", "price": 8.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Goldon Ale 33cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Alta Vienna 50cl", "price": 8.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Top Modhell 33cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Lipa 33cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Acqua Naturale 0.5L", "price": 1.5, "cat": "Bibite"}, {"name": "Acqua Naturale 0.75L", "price": 2.5, "cat": "Bibite"}, {"name": "Coca Cola", "price": 3.0, "cat": "Bibite"}, {"name": "Fanta", "price": 3.0, "cat": "Bibite"}, {"name": "Sprite", "price": 3.0, "cat": "Bibite"}, {"name": "Te Pesca Limone", "price": 3.0, "cat": "Bibite"}, {"name": "Tonica", "price": 3.0, "cat": "Bibite"}, {"name": "Succo di Frutta", "price": 3.0, "cat": "Bibite"}, {"name": "Lemon Soda", "price": 3.5, "cat": "Bibite"}, {"name": "Red Bull", "price": 3.0, "cat": "Bibite"}, {"name": "Crodino", "price": 3.0, "cat": "Bibite"}, {"name": "Gingerino", "price": 3.0, "cat": "Bibite"}, {"name": "Genziana Lurisa", "price": 3.0, "cat": "Bibite"}, {"name": "La Vis Nosiola 75cl", "price": 16.0, "cat": "Vini Bianchi"}, {"name": "Muller-Thurgau Roberta Fugatti 75cl", "price": 18.0, "cat": "Vini Bianchi"}, {"name": "Gewurztraminer Roberta Fugatti 75cl", "price": 22.0, "cat": "Vini Bianchi"}, {"name": "Follador Foselios Prosecco Brut DOCG 75cl", "price": 18.0, "cat": "Vini Bianchi"}, {"name": "Follador Xzero Prosecco Extra Brut DOCG 75cl", "price": 20.0, "cat": "Vini Bianchi"}, {"name": "Trentino DOC Brut 75cl", "price": 50.0, "cat": "Vini Bianchi"}, {"name": "Calice Vino Bianco", "price": 5.0, "cat": "Vini Bianchi"}, {"name": "Teroldego R. Fugatti 75cl", "price": 18.0, "cat": "Vini Rossi"}, {"name": "Lagrein Alto Adige Von Blumen 75cl", "price": 25.0, "cat": "Vini Rossi"}, {"name": "Pinot Nero Alto Adige Von Blumen 75cl", "price": 26.0, "cat": "Vini Rossi"}, {"name": "Valpolicella Rio Albo Ca Rugate 75cl", "price": 19.0, "cat": "Vini Rossi"}, {"name": "Calice Vino Rosso", "price": 5.0, "cat": "Vini Rossi"}, {"name": "Spritz Aperol", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Spritz Campari", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Spritz Limoncello", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Americano", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Negroni", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Vodka Tonic", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Vodka Red Bull", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Base", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Premium", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "London Dry", "price": 10.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Malfy Rosa", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Mare", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Ginnico", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Hugo", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Monte Cola", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Jager Coke", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Jagerbomb", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Amaro", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Fernet Branca", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Brancamenta", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Vecchio Amaro del Capo", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Jagermeister", "price": 3.0, "cat": "Dopocena & Amari"}, {"name": "Montenegro", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Unicum Zwack", "price": 5.0, "cat": "Dopocena & Amari"}, {"name": "Petrus", "price": 3.0, "cat": "Dopocena & Amari"}, {"name": "Baileys", "price": 3.0, "cat": "Dopocena & Amari"}, {"name": "Bombardino", "price": 5.0, "cat": "Dopocena & Amari"}, {"name": "Stravecchio Branca", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Brandy", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Puch all Arancia", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Barcelo Blanco Rum", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Barcelo Dorado Rum", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Jack Daniel's Whisky", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Jameson Whiskey Black Barrel", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Amaretto di Saronno", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Limoncello", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Liquirizia", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Bourbon Whiskey", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Talisker Skye Scotch Whiskey", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Grappa Camomilla", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Cirmolo", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Fieno", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Nocciola", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Cumino", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Ginepro", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Genziana", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Pino Mugo", "price": 4.0, "cat": "Grappe Locali"}];
+const NUM_TAVOLI = 30;
+const NUM_BANCO  = 10;
+
+let selectedTavolo = null;
+let cart = [];           // articoli della comanda corrente
+let currentCat = '';
+let searchQuery = '';
+
+// ── NAVIGAZIONE ──────────────────────────────────────────────────
+function goScreen(name){
+  if(name==='prodotti' && !selectedTavolo){ alert('Seleziona prima un tavolo!'); return; }
+  if(name==='riepilogo' && !cart.length){ alert('Aggiungi almeno un prodotto!'); return; }
+  ['tavoli','prodotti','riepilogo'].forEach(s=>{
+    document.getElementById('scr-'+s).classList.toggle('active', s===name);
+    const bn = document.getElementById('bn'+(['tavoli','prodotti','riepilogo'].indexOf(s)+1));
+    if(bn) bn.classList.toggle('active', s===name);
+    const st = document.getElementById('step'+(['tavoli','prodotti','riepilogo'].indexOf(s)+1));
+    if(st) st.classList.toggle('active', s===name);
+  });
+  if(name==='prodotti') renderProdotti();
+  if(name==='riepilogo') renderRiepilogo();
+}
+
+// ── TAVOLI ───────────────────────────────────────────────────────
+function renderTavoli(){
+  const tg=document.getElementById('tv-grid');
+  const bg=document.getElementById('banco-grid');
+  tg.innerHTML=''; bg.innerHTML='';
+  for(let i=1;i<=NUM_TAVOLI;i++){
+    const btn=document.createElement('button');
+    btn.className='btn-tv'+(selectedTavolo===i?' sel':'');
+    btn.innerHTML=`<span class="tn">T${i}</span>`;
+    btn.onclick=()=>{selectedTavolo=i;renderTavoli();goScreen('prodotti');};
+    tg.appendChild(btn);
+  }
+  for(let i=1;i<=NUM_BANCO;i++){
+    const key='B'+i;
+    const btn=document.createElement('button');
+    btn.className='btn-tv'+(selectedTavolo===key?' sel':'');
+    btn.innerHTML=`<span class="tn">B${i}</span>`;
+    btn.onclick=()=>{selectedTavolo=key;renderTavoli();goScreen('prodotti');};
+    bg.appendChild(btn);
+  }
+}
+
+// ── CATEGORIE ────────────────────────────────────────────────────
+function renderCatBar(){
+  const cats=[...new Set(prodotti.map(p=>p.cat))];
+  if(!currentCat) currentCat=cats[0]||'';
+  const bar=document.getElementById('cat-bar');
+  bar.innerHTML='';
+  cats.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='cat-btn'+(c===currentCat?' active':'');
+    b.textContent=({
+      "Birre alla Spina":"🍺","Birre in Bottiglia":"🍾","Birre Artigianali":"🏺",
+      "Cocktail":"🍹","Superalcolici":"🥃","Vini Rossi":"🍷","Vini Bianchi":"🥂",
+      "Vini Rosati":"🌸","Vini Spumanti":"🫧","Analcolici":"🧃","Caffetteria":"☕",
+      "Hamburger":"🍔","Panini":"🥖","Pizze Rosse":"🍕","Pizze Bianche":"🫓",
+      "Stuzzichini & Antipasti":"🧆","Dolci & Dessert":"🍰","Cucina & Altro":"🍽️",
+      "Taglieri":"🧀","Tostoni":"🥪","Insalate":"🥗","Burgers":"🍔","Fritti":"🍟",
+      "Dolci":"🍰","Hot Dog & Salsicce":"🌭","Bibite":"🥤","Drinks & Cocktail":"🍹",
+      "Dopocena & Amari":"🥃","Grappe Locali":"🫙",
+    }[c]||'🍽️')+' '+c;
+    b.onclick=()=>{currentCat=c;searchQuery='';document.getElementById('search-inp').value='';renderCatBar();renderProdotti();};
+    bar.appendChild(b);
+  });
+}
+
+// ── PRODOTTI ─────────────────────────────────────────────────────
+function renderProdotti(){
+  renderCatBar();
+  const grid=document.getElementById('prod-grid');
+  const lbl=document.getElementById('tavolo-sel-lbl');
+  lbl.textContent=String(selectedTavolo).startsWith('B')?'Banco '+String(selectedTavolo).slice(1):'Tavolo '+selectedTavolo;
+  const q=searchQuery.toLowerCase();
+  const lista=q?prodotti.filter(p=>p.name.toLowerCase().includes(q)):prodotti.filter(p=>p.cat===currentCat);
+  grid.innerHTML='';
+  lista.forEach(prod=>{
+    const b=document.createElement('button');
+    b.className='btn-prod';
+    b.innerHTML=`<span class="pn">${prod.name}</span><span class="pp">€ ${fmt(prod.price)}</span>`;
+    b.onclick=()=>addToCart(prod);
+    grid.appendChild(b);
+  });
+  aggiornaCartBadge();
+}
+
+document.getElementById('search-inp').addEventListener('input',function(){
+  searchQuery=this.value.trim(); renderProdotti();
+});
+
+// ── CART ─────────────────────────────────────────────────────────
+function addToCart(prod){
+  const ex=cart.find(i=>i.name===prod.name);
+  if(ex) ex.qty++;
+  else cart.push({name:prod.name,price:prod.price,cat:prod.cat||'',qty:1});
+  aggiornaCartBadge();
+  // Flash feedback
+  renderProdotti();
+}
+
+function aggiornaCartBadge(){
+  const n=cart.reduce((s,i)=>s+i.qty,0);
+  const el=document.getElementById('cart-badge');
+  el.textContent=n+' art.';
+  el.style.display=n>0?'inline':'none';
+}
+
+function removeFromCart(idx){
+  cart.splice(idx,1); renderRiepilogo();
+}
+function cambiaQtyCart(idx,d){
+  cart[idx].qty+=d;
+  if(cart[idx].qty<=0) cart.splice(idx,1);
+  renderRiepilogo();
+}
+
+// ── RIEPILOGO ────────────────────────────────────────────────────
+function renderRiepilogo(){
+  const lbl=document.getElementById('riepilogo-tav');
+  lbl.textContent=String(selectedTavolo).startsWith('B')?'Banco '+String(selectedTavolo).slice(1):'Tavolo '+selectedTavolo;
+
+  const container=document.getElementById('riepilogo-items');
+  if(!cart.length){ container.innerHTML='<div style="text-align:center;color:#475569;padding:40px;">Nessun prodotto</div>'; return; }
+
+  // Dividi per reparto
+  const cucina=cart.filter(i=>CUCINA_CATS.includes(i.cat));
+  const bar=cart.filter(i=>BAR_CATS.includes(i.cat));
+  const altro=cart.filter(i=>!CUCINA_CATS.includes(i.cat)&&!BAR_CATS.includes(i.cat));
+
+  let html='';
+  const renderGruppo=(items,titolo,colore)=>{
+    if(!items.length) return '';
+    let h=`<div class="r-sep" style="color:${colore}">${titolo}</div>`;
+    items.forEach((item,idx)=>{
+      const realIdx=cart.indexOf(item);
+      h+=`<div class="r-item">
+        <span class="r-qty">${item.qty}x</span>
+        <div style="flex:1"><div class="r-name">${item.name}</div></div>
+        <span class="r-price">€ ${fmt(item.price*item.qty)}</span>
+        <button class="r-del" onclick="cambiaQtyCart(${realIdx},-1)">➖</button>
+        <button class="r-del" onclick="cambiaQtyCart(${realIdx},1)">➕</button>
+      </div>`;
+    });
+    return h;
+  };
+
+  html+=renderGruppo(cucina,'🍳 CUCINA','#f97316');
+  html+=renderGruppo(bar,'🍺 BAR','#3b82f6');
+  html+=renderGruppo(altro,'📋 ALTRO','#94a3b8');
+  container.innerHTML=html;
+
+  const tot=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  document.getElementById('riepilogo-tot').textContent='Totale stimato: € '+fmt(tot);
+}
+
+// ── INVIO ─────────────────────────────────────────────────────────
+async function inviaOrdine(){
+  if(!selectedTavolo||!cart.length) return;
+  const btn=document.getElementById('btn-invia-tutto');
+  btn.disabled=true; btn.textContent='⏳ Invio in corso...';
+
+  const tavolo_label=String(selectedTavolo).startsWith('B')?'Banco '+String(selectedTavolo).slice(1):'Tavolo '+selectedTavolo;
+  const gruppo_invio=new Date().toISOString();
+
+  const records=cart.map(item=>{
+    const rep=CUCINA_CATS.includes(item.cat)?'cucina':BAR_CATS.includes(item.cat)?'bar':'cucina';
+    return {tavolo:String(selectedTavolo),tavolo_label,reparto:rep,articolo:item.name,quantita:item.qty,gruppo_invio,stato:'attesa'};
+  });
+
+  try{
+    const{error}=await supa.from('ordini_cucina').insert(records);
+    if(error) throw error;
+    btn.textContent='✅ Ordine inviato!';
+    btn.classList.add('ok');
+    setTimeout(()=>{
+      btn.textContent='📤 Invia a Cucina & Bar';
+      btn.classList.remove('ok');
+      btn.disabled=false;
+    },3000);
+  }catch(e){
+    alert('❌ Errore: '+e.message);
+    btn.textContent='📤 Invia a Cucina & Bar';
+    btn.disabled=false;
+  }
+}
+
+function nuovaComanda(){
+  cart=[];
+  goScreen('prodotti');
+}
+
+// ── SYNC STATUS ───────────────────────────────────────────────────
+async function checkSync(){
+  try{
+    const{error}=await supa.from('ordini_cucina').select('id').limit(1);
+    const el=document.getElementById('sync');
+    if(error){ el.className='err'; el.textContent='🔴'; }
+    else { el.className='ok'; el.textContent='🟢'; }
+  }catch(e){ document.getElementById('sync').className='err'; }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────
+renderTavoli();
+renderCatBar();
+checkSync();
+setInterval(checkSync,30000);
+</script>
+</body>
+</html>
