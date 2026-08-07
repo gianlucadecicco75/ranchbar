@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>🍳 Cucina — Ranch Bar</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --dark:#1a1a2e;--accent:#e94560;--green:#27ae60;
+  --gold:#f5a623;--orange:#e67e22;--blue:#2980b9;
+  --white:#fff;--light:#f0f4f8;--border:#dde1e7;
+  --text:#2c3e50;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#1a1a2e;color:var(--white);min-height:100vh;}
+
+/* ── HEADER ── */
+#header{
+  background:#0f0f1e;border-bottom:3px solid var(--accent);
+  padding:12px 20px;display:flex;align-items:center;gap:16px;
+}
+#header h1{font-size:1.3rem;font-weight:900;color:var(--white);}
+#header .reparto-badge{
+  background:var(--accent);color:white;
+  border-radius:20px;padding:4px 16px;font-size:.85rem;font-weight:700;
+}
+#header .reparto-badge.bar{background:var(--blue);}
+#clock{margin-left:auto;font-family:monospace;font-size:1.1rem;color:var(--gold);font-weight:700;}
+#sync-status{font-size:.75rem;padding:4px 10px;border-radius:10px;font-weight:700;}
+.sync-ok{background:#1a3a1a;color:#27ae60;}
+.sync-err{background:#3a1a1a;color:#e94560;}
+
+/* ── TABS REPARTO ── */
+#tabs{display:flex;background:#0f0f1e;border-bottom:2px solid #2a2a4a;}
+.tab-btn{
+  flex:1;padding:14px;border:none;background:none;color:#666;
+  font-size:1rem;font-weight:700;cursor:pointer;
+  border-bottom:4px solid transparent;transition:all .2s;
+}
+.tab-btn.active{color:var(--white);border-bottom-color:var(--accent);background:#16213e;}
+.tab-btn:hover:not(.active){background:#1a1a2e;color:#aaa;}
+.tab-btn .count{
+  display:inline-block;background:var(--accent);color:white;
+  border-radius:12px;font-size:.7rem;padding:1px 7px;margin-left:6px;
+}
+.tab-btn.bar-tab.active{border-bottom-color:var(--blue);}
+.tab-btn .count.bar{background:var(--blue);}
+
+/* ── FILTRI STATO ── */
+#filtri{display:flex;gap:8px;padding:12px 16px;background:#16213e;flex-wrap:wrap;align-items:center;}
+.filtro-btn{
+  border:2px solid #3a3a5a;background:none;color:#888;
+  border-radius:20px;padding:6px 16px;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .15s;
+}
+.filtro-btn.active{border-color:var(--gold);color:var(--gold);background:#2a2a1a;}
+#btn-segna-tutti{
+  margin-left:auto;background:var(--green);color:white;border:none;
+  border-radius:8px;padding:8px 18px;font-size:.82rem;font-weight:700;cursor:pointer;
+}
+#btn-segna-tutti:hover{background:#1e8449;}
+
+/* ── GRIGLIA ORDINI ── */
+#ordini-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:14px;padding:16px;
+  align-content:start;
+  overflow-y:auto;
+  height:calc(100vh - 180px);
+}
+.ordine-card{
+  background:#16213e;border:2px solid #2a2a4a;border-radius:12px;
+  overflow:hidden;transition:all .2s;
+}
+.ordine-card.attesa{border-color:var(--orange);}
+.ordine-card.pronto{border-color:var(--green);opacity:.7;}
+.ordine-card.consegnato{border-color:#2a2a4a;opacity:.35;}
+
+.card-header{
+  padding:10px 14px;display:flex;align-items:center;gap:8px;
+  background:#0f0f1e;
+}
+.card-header.attesa{background:#2a1800;border-bottom:2px solid var(--orange);}
+.card-header.pronto{background:#0a2a0a;border-bottom:2px solid var(--green);}
+.card-header .tavolo-lbl{
+  font-size:1.1rem;font-weight:900;color:var(--white);
+}
+.card-header .orario{
+  margin-left:auto;font-size:.72rem;color:#888;font-family:monospace;
+}
+.card-header .timer{
+  font-size:.75rem;font-weight:700;padding:2px 8px;
+  border-radius:10px;background:#2a2a4a;color:var(--gold);
+}
+.card-header .timer.urgente{background:#4a1a00;color:#ff6b35;animation:blink 1s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+.card-items{padding:10px 14px;}
+.ordine-item{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;border-bottom:1px solid #2a2a4a;
+}
+.ordine-item:last-child{border-bottom:none;}
+.item-qty{
+  background:var(--accent);color:white;border-radius:8px;
+  min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  font-size:.95rem;font-weight:900;flex-shrink:0;
+}
+.item-qty.pronto{background:var(--green);}
+.item-name{flex:1;font-size:.9rem;font-weight:600;line-height:1.3;}
+.item-name.pronto{text-decoration:line-through;color:#666;}
+.btn-item{
+  border:none;border-radius:8px;padding:6px 12px;cursor:pointer;
+  font-size:.8rem;font-weight:700;transition:all .15s;flex-shrink:0;
+}
+.btn-item.segna{background:var(--green);color:white;}
+.btn-item.segna:hover{background:#1e8449;}
+.btn-item.unsegna{background:#2a2a4a;color:#888;}
+.btn-item.unsegna:hover{background:#3a3a5a;color:white;}
+
+.card-footer{
+  padding:10px 14px;display:flex;gap:8px;
+  background:#0f0f1e;border-top:1px solid #2a2a4a;
+}
+.btn-card{
+  flex:1;border:none;border-radius:8px;padding:9px;
+  font-size:.8rem;font-weight:700;cursor:pointer;transition:all .15s;
+}
+.btn-tutto-pronto{background:var(--green);color:white;}
+.btn-tutto-pronto:hover{background:#1e8449;}
+.btn-consegnato{background:#2a2a4a;color:#888;}
+.btn-consegnato.attiva{background:var(--blue);color:white;}
+.btn-consegnato:hover{background:#3a3a5a;}
+
+/* ── EMPTY STATE ── */
+#empty-state{
+  grid-column:1/-1;text-align:center;padding:80px 20px;
+  color:#444;font-size:1.1rem;
+}
+#empty-state .icon{font-size:4rem;margin-bottom:16px;}
+
+/* ── NOTIFICA NUOVO ORDINE ── */
+#notifica{
+  position:fixed;top:80px;right:20px;z-index:9999;
+  background:var(--orange);color:white;border-radius:12px;
+  padding:14px 24px;font-size:1rem;font-weight:700;
+  box-shadow:0 4px 20px rgba(230,126,34,.5);
+  transform:translateX(150%);transition:transform .3s;
+}
+#notifica.show{transform:translateX(0);}
+
+/* ── AUDIO BELL (visuale) ── */
+#audio-toggle{
+  background:#2a2a4a;border:none;border-radius:8px;padding:6px 12px;
+  color:#888;cursor:pointer;font-size:.85rem;
+}
+#audio-toggle.on{background:#1a3a1a;color:#27ae60;}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1 id="page-title">🍳 Cucina</h1>
+  </div>
+  <span id="reparto-badge" class="reparto-badge">CUCINA</span>
+  <span id="sync-status" class="sync-ok">🟢 Connesso</span>
+  <button id="audio-toggle" onclick="toggleAudio()">🔔 Suono ON</button>
+  <div id="clock"></div>
+</div>
+
+<div id="tabs">
+  <button class="tab-btn active" id="tab-cucina" onclick="setReparto('cucina')">
+    🍳 Cucina <span class="count" id="count-cucina">0</span>
+  </button>
+  <button class="tab-btn bar-tab" id="tab-bar" onclick="setReparto('bar')">
+    🍺 Bar <span class="count bar" id="count-bar">0</span>
+  </button>
+</div>
+
+<div id="filtri">
+  <button class="filtro-btn active" onclick="setFiltro('attesa',this)">⏳ In attesa</button>
+  <button class="filtro-btn" onclick="setFiltro('pronto',this)">✅ Pronti</button>
+  <button class="filtro-btn" onclick="setFiltro('tutti',this)">📋 Tutti</button>
+  <button id="btn-segna-tutti" onclick="segnaTutti()">✅ Segna tutti pronti</button>
+</div>
+
+<div id="ordini-grid">
+  <div id="empty-state">
+    <div class="icon">🍳</div>
+    <div>Nessun ordine in attesa</div>
+  </div>
+</div>
+
+<div id="notifica">🔔 Nuovo ordine!</div>
+
+<script>
+const SUPA_URL = 'https://wfvpunzvmoisuaeryffg.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmdnB1bnp2bW9pc3VhZXJ5ZmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMzc5OTAsImV4cCI6MjA5OTYxMzk5MH0.5-dRvP52uRMnOxkiecNIdH1on0N3_2aHEdV8awSYbIQ';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const CUCINA_CATS = ["Taglieri", "Tostoni", "Insalate", "Burgers", "Panini", "Fritti", "Dolci", "Hot Dog & Salsicce", "Pizze Rosse", "Pizze Bianche", "Stuzzichini & Antipasti", "Cucina & Altro"];
+const BAR_CATS = ["Birre alla Spina", "Birre in Bottiglia", "Birre Artigianali", "Cocktail", "Superalcolici", "Vini Rossi", "Vini Bianchi", "Vini Rosati", "Vini Spumanti", "Analcolici", "Caffetteria", "Drinks & Cocktail", "Dopocena & Amari", "Grappe Locali", "Bibite"];
+
+let repartoAttivo = 'cucina';
+let filtroAttivo = 'attesa';
+let ordini = [];   // array piatto di tutti i record
+let audioOn = true;
+let _notifTimer = null;
+
+// ── CLOCK ──────────────────────────────────────────────────────
+function updateClock(){
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('it-IT');
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── TIMER DISPLAY ───────────────────────────────────────────────
+function minutiDa(ts){
+  return Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
+}
+
+// ── REPARTO & FILTRO ────────────────────────────────────────────
+function setReparto(r){
+  repartoAttivo = r;
+  document.getElementById('tab-cucina').classList.toggle('active', r==='cucina');
+  document.getElementById('tab-bar').classList.toggle('active', r==='bar');
+  renderOrdini();
+}
+
+function setFiltro(f, btn){
+  filtroAttivo = f;
+  document.querySelectorAll('.filtro-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOrdini();
+}
+
+// ── RENDER ──────────────────────────────────────────────────────
+function renderOrdini(){
+  // Raggruppa per tavolo+timestamp_invio (stesso invio = stessa card)
+  const filtered = ordini.filter(o=>{
+    if(o.reparto !== repartoAttivo) return false;
+    if(filtroAttivo === 'attesa') return o.stato !== 'consegnato';
+    if(filtroAttivo === 'pronto') return o.stato === 'pronto';
+    return true;
+  });
+
+  // Conta per badge tabs
+  const nCucina = ordini.filter(o=>o.reparto==='cucina'&&o.stato==='attesa').length;
+  const nBar    = ordini.filter(o=>o.reparto==='bar'&&o.stato==='attesa').length;
+  document.getElementById('count-cucina').textContent = nCucina;
+  document.getElementById('count-bar').textContent    = nBar;
+
+  // Raggruppa per (tavolo + gruppo_invio)
+  const gruppi = {};
+  filtered.forEach(o=>{
+    const key = o.tavolo + '|' + (o.gruppo_invio||o.creato_il?.slice(0,16)||'');
+    if(!gruppi[key]) gruppi[key] = {
+      tavolo: o.tavolo,
+      tavolo_label: o.tavolo_label,
+      gruppo_invio: o.gruppo_invio||o.creato_il,
+      orario: new Date(o.creato_il).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}),
+      items: [],
+      tuttoPronto: true
+    };
+    gruppi[key].items.push(o);
+    if(o.stato === 'attesa') gruppi[key].tuttoPronto = false;
+  });
+
+  const grid = document.getElementById('ordini-grid');
+  const empty = document.getElementById('empty-state');
+
+  const keys = Object.keys(gruppi).sort((a,b)=>{
+    return new Date(gruppi[a].gruppo_invio) - new Date(gruppi[b].gruppo_invio);
+  });
+
+  if(!keys.length){
+    grid.innerHTML='<div id="empty-state" style="grid-column:1/-1;text-align:center;padding:80px 20px;color:#444;font-size:1.1rem;"><div style="font-size:4rem;margin-bottom:16px;">🍳</div><div>Nessun ordine in attesa</div></div>';
+    return;
+  }
+  grid.innerHTML='';
+
+  keys.forEach(key=>{
+    const g = gruppi[key];
+    const minuti = minutiDa(g.gruppo_invio);
+    const urgente = minuti >= 15;
+    const statoCard = g.tuttoPronto ? 'pronto' : 'attesa';
+
+    const card = document.createElement('div');
+    card.className = `ordine-card ${statoCard}`;
+    card.innerHTML = `
+      <div class="card-header ${statoCard}">
+        <span class="tavolo-lbl">${g.tavolo_label}</span>
+        <span class="timer ${urgente?'urgente':''}">⏱ ${minuti}m</span>
+        <span class="orario">${g.orario}</span>
+      </div>
+      <div class="card-items">
+        ${g.items.map(o=>`
+          <div class="ordine-item">
+            <span class="item-qty ${o.stato!=='attesa'?'pronto':''}">${o.quantita}x</span>
+            <span class="item-name ${o.stato!=='attesa'?'pronto':''}">${o.articolo}</span>
+            ${o.stato==='attesa'
+              ? `<button class="btn-item segna" onclick="segnaItem(${o.id})">✅ Pronto</button>`
+              : `<button class="btn-item unsegna" onclick="unsegnaItem(${o.id})">↩️</button>`
+            }
+          </div>
+        `).join('')}
+      </div>
+      <div class="card-footer">
+        ${!g.tuttoPronto
+          ? `<button class="btn-card btn-tutto-pronto" onclick="segnaTuttoGruppo('${key}')">✅ Tutto pronto</button>`
+          : `<button class="btn-card btn-consegnato attiva" onclick="segnaConsegnato('${key}')">📦 Consegnato</button>`
+        }
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── AZIONI ──────────────────────────────────────────────────────
+async function segnaItem(id){
+  await supa.from('ordini_cucina').update({stato:'pronto',aggiornato_il:new Date().toISOString()}).eq('id',id);
+  const o = ordini.find(x=>x.id===id);
+  if(o) o.stato='pronto';
+  renderOrdini();
+}
+
+async function unsegnaItem(id){
+  await supa.from('ordini_cucina').update({stato:'attesa',aggiornato_il:new Date().toISOString()}).eq('id',id);
+  const o = ordini.find(x=>x.id===id);
+  if(o) o.stato='attesa';
+  renderOrdini();
+}
+
+async function segnaTuttoGruppo(key){
+  const ids = ordini.filter(o=>{
+    const k = o.tavolo+'|'+(o.gruppo_invio||o.creato_il?.slice(0,16)||'');
+    return k===key && o.stato==='attesa';
+  }).map(o=>o.id);
+  if(!ids.length) return;
+  await supa.from('ordini_cucina').update({stato:'pronto',aggiornato_il:new Date().toISOString()}).in('id',ids);
+  ids.forEach(id=>{ const o=ordini.find(x=>x.id===id); if(o) o.stato='pronto'; });
+  renderOrdini();
+}
+
+async function segnaConsegnato(key){
+  const ids = ordini.filter(o=>{
+    const k = o.tavolo+'|'+(o.gruppo_invio||o.creato_il?.slice(0,16)||'');
+    return k===key;
+  }).map(o=>o.id);
+  if(!ids.length) return;
+  await supa.from('ordini_cucina').update({stato:'consegnato',aggiornato_il:new Date().toISOString()}).in('id',ids);
+  ids.forEach(id=>{ const o=ordini.find(x=>x.id===id); if(o) o.stato='consegnato'; });
+  renderOrdini();
+}
+
+async function segnaTutti(){
+  const ids = ordini.filter(o=>o.reparto===repartoAttivo&&o.stato==='attesa').map(o=>o.id);
+  if(!ids.length) return;
+  await supa.from('ordini_cucina').update({stato:'pronto',aggiornato_il:new Date().toISOString()}).in('id',ids);
+  ids.forEach(id=>{ const o=ordini.find(x=>x.id===id); if(o) o.stato='pronto'; });
+  renderOrdini();
+}
+
+// ── SUONO ───────────────────────────────────────────────────────
+function toggleAudio(){
+  audioOn=!audioOn;
+  const btn=document.getElementById('audio-toggle');
+  btn.textContent=audioOn?'🔔 Suono ON':'🔕 Suono OFF';
+  btn.classList.toggle('on',audioOn);
+}
+
+function suonaCampanella(){
+  if(!audioOn) return;
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [880,1100,880].forEach((freq,i)=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value=freq;
+      osc.type='sine';
+      gain.gain.setValueAtTime(0.3,ctx.currentTime+i*0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+i*0.15+0.3);
+      osc.start(ctx.currentTime+i*0.15);
+      osc.stop(ctx.currentTime+i*0.15+0.3);
+    });
+  }catch(e){}
+}
+
+function mostraNotifica(testo){
+  const el=document.getElementById('notifica');
+  el.textContent=testo;
+  el.classList.add('show');
+  clearTimeout(_notifTimer);
+  _notifTimer=setTimeout(()=>el.classList.remove('show'),4000);
+  suonaCampanella();
+}
+
+// ── CARICA ORDINI ───────────────────────────────────────────────
+async function caricaOrdini(){
+  try{
+    const {data,error}=await supa.from('ordini_cucina')
+      .select('*')
+      .neq('stato','consegnato')
+      .order('creato_il',{ascending:true});
+    if(error) throw error;
+    ordini = data||[];
+    renderOrdini();
+    document.getElementById('sync-status').className='sync-ok';
+    document.getElementById('sync-status').textContent='🟢 Connesso';
+  }catch(e){
+    document.getElementById('sync-status').className='sync-err';
+    document.getElementById('sync-status').textContent='🔴 Offline';
+  }
+}
+
+// ── REALTIME ────────────────────────────────────────────────────
+function avviaRealtime(){
+  supa.channel('cucina_realtime')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'ordini_cucina'},
+      payload=>{
+        ordini.push(payload.new);
+        const lbl=payload.new.tavolo_label||payload.new.tavolo;
+        mostraNotifica(`🔔 Nuovo ordine — ${lbl}`);
+        renderOrdini();
+      }
+    )
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ordini_cucina'},
+      payload=>{
+        const idx=ordini.findIndex(o=>o.id===payload.new.id);
+        if(idx>=0) ordini[idx]=payload.new; else ordini.push(payload.new);
+        renderOrdini();
+      }
+    )
+    .subscribe(status=>{
+      const el=document.getElementById('sync-status');
+      if(status==='SUBSCRIBED'){
+        el.className='sync-ok'; el.textContent='🟢 Connesso';
+      } else {
+        el.className='sync-err'; el.textContent='🔴 Disconnesso';
+      }
+    });
+}
+
+// ── INIT ────────────────────────────────────────────────────────
+caricaOrdini();
+avviaRealtime();
+// Ricarica ogni 30s come fallback
+setInterval(caricaOrdini, 30000);
+// Aggiorna timer ogni minuto
+setInterval(renderOrdini, 60000);
+</script>
+</body>
+</html>
