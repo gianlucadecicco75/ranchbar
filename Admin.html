@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>⚙️ Admin — Ranch Bar</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--dark:#0f172a;--mid:#1e293b;--accent:#f97316;--green:#22c55e;--red:#ef4444;--gold:#fbbf24;--white:#fff;--border:#334155;--text:#e2e8f0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;min-height:100vh;}
+#header{background:var(--dark);padding:14px 24px;display:flex;align-items:center;gap:12px;}
+#header h1{color:var(--white);font-size:1.2rem;font-weight:900;}
+#sync{font-size:.75rem;padding:4px 10px;border-radius:10px;font-weight:700;margin-left:auto;}
+.ok{background:#14532d;color:#4ade80;} .err{background:#4a1a1a;color:#f87171;}
+.container{max-width:900px;margin:0 auto;padding:24px 16px;}
+.page-title{font-size:1.3rem;font-weight:900;color:var(--dark);margin-bottom:6px;}
+.page-sub{font-size:.85rem;color:#64748b;margin-bottom:24px;}
+
+/* Category selector */
+.cat-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;}
+.cat-tab{border:2px solid #cbd5e1;background:white;border-radius:8px;padding:7px 14px;font-size:.8rem;font-weight:700;color:#64748b;cursor:pointer;transition:all .15s;}
+.cat-tab:hover{border-color:var(--accent);color:var(--accent);}
+.cat-tab.active{background:var(--accent);border-color:var(--accent);color:white;}
+
+/* Scorciatoie list */
+.sc-section{background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden;}
+.sc-header{padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;}
+.sc-header h2{font-size:1rem;font-weight:700;flex:1;}
+.sc-list{padding:10px;}
+.sc-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;margin-bottom:5px;background:#f8fafc;border:1px solid #e2e8f0;transition:all .15s;}
+.sc-item:hover{border-color:var(--accent);background:#fff7ed;}
+.sc-item .sc-text{flex:1;font-size:.88rem;font-weight:600;color:#1e293b;}
+.sc-item .sc-cat-badge{font-size:.68rem;background:#f1f5f9;color:#64748b;padding:2px 7px;border-radius:10px;}
+.btn-del-sc{border:none;background:none;cursor:pointer;color:#94a3b8;font-size:1.1rem;padding:3px 6px;border-radius:5px;}
+.btn-del-sc:hover{background:#fee2e2;color:var(--red);}
+.sc-empty{text-align:center;padding:30px;color:#94a3b8;font-size:.88rem;}
+
+/* Add form */
+.add-form{padding:14px 18px;border-top:1px solid #e2e8f0;display:flex;gap:8px;}
+.add-form input{flex:1;padding:9px 14px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.88rem;outline:none;}
+.add-form input:focus{border-color:var(--accent);}
+.add-form select{padding:9px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:.82rem;outline:none;background:white;}
+.add-form select:focus{border-color:var(--accent);}
+.btn-add-sc{background:var(--accent);color:white;border:none;border-radius:8px;padding:9px 18px;font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.btn-add-sc:hover{background:#ea580c;}
+
+/* All shortcuts view */
+.all-view{margin-top:24px;}
+.all-view h2{font-size:1rem;font-weight:700;margin-bottom:12px;color:var(--dark);}
+.cat-group{background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;overflow:hidden;}
+.cat-group-header{padding:10px 16px;background:var(--dark);color:var(--gold);font-size:.82rem;font-weight:700;display:flex;align-items:center;justify-content:space-between;}
+.cat-group-items{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;}
+.sc-pill{display:inline-flex;align-items:center;gap:5px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:4px 10px;font-size:.78rem;font-weight:600;}
+.sc-pill button{border:none;background:none;color:#94a3b8;cursor:pointer;font-size:.85rem;padding:0 2px;line-height:1;}
+.sc-pill button:hover{color:var(--red);}
+
+/* Tabs nav */
+.nav-tabs{display:flex;gap:8px;margin-bottom:20px;}
+.nav-tab{border:none;padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .15s;}
+.nav-tab.active{background:var(--dark);color:var(--white);}
+.nav-tab:not(.active){background:white;color:#64748b;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+
+/* toast */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:white;border-radius:10px;padding:12px 20px;font-weight:700;font-size:.88rem;transform:translateY(100px);transition:transform .3s;z-index:999;}
+#toast.show{transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>⚙️ Admin — Ranch Bar</h1>
+  <span id="sync" class="ok">🟢 Connesso</span>
+</div>
+
+<div class="container">
+  <div class="page-title">Gestione Scorciatoie</div>
+  <div class="page-sub">Le modifiche si aggiornano in tempo reale su tutti i telefoni dei camerieri</div>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="setView('per-cat',this)">📂 Per categoria</button>
+    <button class="nav-tab" onclick="setView('tutte',this)">📋 Tutte le scorciatoie</button>
+  </div>
+
+  <!-- VIEW: PER CATEGORIA -->
+  <div id="view-per-cat">
+    <div class="cat-tabs" id="cat-tabs"></div>
+    <div class="sc-section">
+      <div class="sc-header">
+        <h2 id="sc-section-title">Scorciatoie</h2>
+        <span id="sc-count" style="font-size:.78rem;color:#94a3b8;"></span>
+      </div>
+      <div class="sc-list" id="sc-list"></div>
+      <div class="add-form">
+        <input type="text" id="new-sc-text" placeholder="Nuova scorciatoia (es. Senza cipolla)" maxlength="60"
+               onkeydown="if(event.key==='Enter')aggiungiSc()">
+        <button class="btn-add-sc" onclick="aggiungiSc()">+ Aggiungi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: TUTTE -->
+  <div id="view-tutte" style="display:none;">
+    <div class="all-view" id="all-view"></div>
+  </div>
+</div>
+
+<div id="toast">✅ Salvato!</div>
+
+<script>
+
+const SUPA_URL='https://wfvpunzvmoisuaeryffg.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmdnB1bnp2bW9pc3VhZXJ5ZmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMzc5OTAsImV4cCI6MjA5OTYxMzk5MH0.5-dRvP52uRMnOxkiecNIdH1on0N3_2aHEdV8awSYbIQ';
+const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+
+const ALL_CATS = ['default', ...["Taglieri", "Tostoni", "Insalate", "Burgers", "Panini", "Fritti", "Dolci", "Hot Dog & Salsicce", "Birre alla Spina", "Birre in Bottiglia", "Birre Artigianali", "Bibite", "Vini Bianchi", "Vini Rossi", "Drinks & Cocktail", "Dopocena & Amari", "Grappe Locali"]];
+let scorciatoie = [];
+let currentCat = 'default';
+let currentView = 'per-cat';
+
+function setSyncOk(ok){
+  const el=document.getElementById('sync');
+  el.className=ok?'ok':'err';
+  el.textContent=ok?'🟢 Connesso':'🔴 Offline';
+}
+
+function toast(msg='Salvato!'){
+  const el=document.getElementById('toast');
+  el.textContent='✅ '+msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────
+async function carica(){
+  try{
+    const{data,error}=await supa.from('scorciatoie').select('*').order('ordine').order('id');
+    if(error) throw error;
+    scorciatoie=data||[];
+    renderAll();
+    setSyncOk(true);
+  }catch(e){ setSyncOk(false); }
+}
+
+// ── RENDER ────────────────────────────────────────────────────────
+function setView(name,btn){
+  currentView=name;
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('view-per-cat').style.display=name==='per-cat'?'block':'none';
+  document.getElementById('view-tutte').style.display=name==='tutte'?'block':'none';
+  renderAll();
+}
+
+function renderAll(){
+  renderCatTabs();
+  renderScList();
+  if(currentView==='tutte') renderTutte();
+}
+
+function renderCatTabs(){
+  const tabs=document.getElementById('cat-tabs');
+  tabs.innerHTML='';
+  ALL_CATS.forEach(cat=>{
+    const n=scorciatoie.filter(s=>s.categoria===cat).length;
+    const b=document.createElement('button');
+    b.className='cat-tab'+(cat===currentCat?' active':'');
+    b.innerHTML=`${cat==='default'?'🌐 Tutte le categorie':cat} <span style="background:#e2e8f0;border-radius:10px;padding:1px 6px;font-size:.68rem;">${n}</span>`;
+    b.onclick=()=>{currentCat=cat;renderAll();};
+    tabs.appendChild(b);
+  });
+}
+
+function renderScList(){
+  const lista=scorciatoie.filter(s=>s.categoria===currentCat);
+  const title=document.getElementById('sc-section-title');
+  const count=document.getElementById('sc-count');
+  title.textContent=currentCat==='default'?'🌐 Scorciatoie per tutte le categorie':currentCat;
+  count.textContent=lista.length+' scorciatoie';
+
+  const el=document.getElementById('sc-list');
+  if(!lista.length){
+    el.innerHTML='<div class="sc-empty">Nessuna scorciatoia per questa categoria.<br>Aggiungine una qui sotto.</div>';
+    return;
+  }
+  el.innerHTML='';
+  lista.forEach(sc=>{
+    const div=document.createElement('div');
+    div.className='sc-item';
+    div.innerHTML=`<span class="sc-text">${sc.testo}</span>
+      <button class="btn-del-sc" onclick="eliminaSc(${sc.id})" title="Elimina">🗑️</button>`;
+    el.appendChild(div);
+  });
+}
+
+function renderTutte(){
+  const wrap=document.getElementById('all-view');
+  const byCat={};
+  scorciatoie.forEach(s=>{
+    if(!byCat[s.categoria]) byCat[s.categoria]=[];
+    byCat[s.categoria].push(s);
+  });
+  let html='';
+  Object.entries(byCat).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([cat,items])=>{
+    html+=`<div class="cat-group">
+      <div class="cat-group-header">
+        <span>${cat==='default'?'🌐 Tutte le categorie':cat}</span>
+        <span style="font-size:.72rem;opacity:.7">${items.length} scorciatoie</span>
+      </div>
+      <div class="cat-group-items">
+        ${items.map(sc=>`<span class="sc-pill">${sc.testo}<button onclick="eliminaSc(${sc.id})" title="Elimina">✕</button></span>`).join('')}
+      </div>
+    </div>`;
+  });
+  wrap.innerHTML=html||'<div class="sc-empty">Nessuna scorciatoia presente.</div>';
+}
+
+// ── AGGIUNGI ──────────────────────────────────────────────────────
+async function aggiungiSc(){
+  const inp=document.getElementById('new-sc-text');
+  const testo=inp.value.trim();
+  if(!testo){ inp.focus(); return; }
+  const ord=scorciatoie.filter(s=>s.categoria===currentCat).length+1;
+  try{
+    const{data,error}=await supa.from('scorciatoie').insert({categoria:currentCat,testo,ordine:ord}).select();
+    if(error) throw error;
+    scorciatoie.push(data[0]);
+    inp.value=''; inp.focus();
+    renderAll();
+    toast('Scorciatoia aggiunta!');
+  }catch(e){ alert('Errore: '+e.message); }
+}
+
+// ── ELIMINA ───────────────────────────────────────────────────────
+async function eliminaSc(id){
+  if(!confirm('Eliminare questa scorciatoia?')) return;
+  try{
+    const{error}=await supa.from('scorciatoie').delete().eq('id',id);
+    if(error) throw error;
+    scorciatoie=scorciatoie.filter(s=>s.id!==id);
+    renderAll();
+    toast('Eliminata!');
+  }catch(e){ alert('Errore: '+e.message); }
+}
+
+// ── REALTIME ──────────────────────────────────────────────────────
+supa.channel('admin_sc')
+  .on('postgres_changes',{event:'*',schema:'public',table:'scorciatoie'},()=>carica())
+  .subscribe();
+
+carica();
+</script>
+</body>
+</html>
