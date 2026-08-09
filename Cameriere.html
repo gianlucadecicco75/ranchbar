@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f172a">
+<title>📱 Cameriere — Ranch Bar</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{--dark:#0f172a;--mid:#1e293b;--accent:#f97316;--green:#22c55e;--red:#ef4444;--gold:#fbbf24;--blue:#3b82f6;--white:#fff;--border:#334155;--text:#e2e8f0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--dark);color:var(--text);min-height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+#header{background:#0a0f1e;border-bottom:2px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;height:46px;}
+#header h1{font-size:.92rem;font-weight:900;color:var(--white);}
+#sync{font-size:.68rem;padding:3px 8px;border-radius:10px;font-weight:700;margin-left:auto;}
+.ok{background:#14532d;color:#4ade80;} .err{background:#4a1a1a;color:#f87171;}
+
+/* STEP BAR */
+#steps{display:flex;background:var(--mid);flex-shrink:0;border-bottom:1px solid var(--border);}
+.step{flex:1;padding:9px 4px;text-align:center;font-size:.72rem;font-weight:700;color:#475569;border-bottom:3px solid transparent;cursor:pointer;transition:all .15s;}
+.step.active{color:var(--accent);border-bottom-color:var(--accent);background:#1a0f00;}
+.step.done{color:var(--green);border-bottom-color:var(--green);background:#001a05;}
+.step .sn{display:inline-block;width:18px;height:18px;border-radius:50%;background:#334155;font-size:.65rem;line-height:18px;text-align:center;margin-right:2px;}
+.step.active .sn{background:var(--accent);color:white;}
+.step.done .sn{background:var(--green);color:white;}
+
+/* SCREENS */
+.screen{flex:1;overflow:hidden;display:none;flex-direction:column;min-height:0;}
+.screen.active{display:flex;flex:1;overflow:hidden;}
+.screen.active{display:flex;}
+
+/* ── SCHERMO 1: TAVOLI ── */
+#scr-tavoli{overflow-y:auto;padding:12px;height:100%;}
+.s-lbl{font-size:.72rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700;padding:6px 0 4px;}
+.tv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:4px;}
+.btn-tv{background:var(--mid);border:2px solid #22c55e;border-radius:9px;padding:8px 3px;cursor:pointer;text-align:center;color:var(--text);transition:all .15s;position:relative;}
+.btn-tv.occ{border-color:var(--red);background:#2a0a0a;}
+.btn-tv.sel{background:var(--accent);border-color:var(--accent);color:white;}
+.btn-tv .tn{font-size:.92rem;font-weight:900;display:block;}
+.btn-tv .ts{font-size:.58rem;color:#4ade80;display:block;margin-top:1px;}
+.btn-tv.occ .ts{color:#fca5a5;}
+.btn-tv.sel .ts{color:rgba(255,255,255,.8);}
+.tv-legenda{display:flex;gap:12px;margin-bottom:8px;font-size:.68rem;}
+.leg-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px;}
+
+/* ── SCHERMO 2: PRODOTTI ── */
+#topbar{background:var(--mid);padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;border-bottom:1px solid var(--border);}
+#tav-lbl{font-size:.88rem;font-weight:700;color:var(--gold);}
+#cart-badge{background:var(--accent);color:white;border-radius:12px;padding:2px 9px;font-size:.72rem;font-weight:900;display:none;}
+#cat-bar{display:flex;flex-wrap:wrap;background:var(--mid);border-bottom:2px solid var(--border);flex-shrink:0;max-height:110px;overflow-y:auto;}
+.cat-btn{border:none;background:none;padding:9px 13px;color:#64748b;font-size:.8rem;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+.cat-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+#search-wrap{padding:7px 12px;background:var(--mid);flex-shrink:0;}
+#search-inp{width:100%;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;background:#0f172a;color:var(--white);font-size:.88rem;outline:none;}
+#search-inp:focus{border-color:var(--accent);}
+#prod-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;align-content:start;}
+.btn-prod{background:var(--mid);border:1.5px solid var(--border);border-radius:12px;padding:0;text-align:left;display:flex;flex-direction:column;transition:all .12s;overflow:hidden;}
+.btn-prod.in-cart{border-color:var(--accent);background:#1c0e00;}
+.btn-prod .p-body{padding:10px 10px 6px;cursor:pointer;flex:1;}
+.btn-prod .p-body:active{opacity:.8;}
+.btn-prod .pn{font-size:.82rem;font-weight:700;color:var(--text);line-height:1.35;display:block;margin-bottom:4px;}
+.btn-prod .pp{font-size:1.05rem;font-weight:900;color:var(--accent);display:block;}
+.btn-prod .p-footer{display:flex;align-items:center;border-top:1px solid var(--border);background:rgba(0,0,0,.15);}
+.btn-prod .qty-row{display:flex;align-items:center;gap:0;flex:1;}
+.btn-prod .qbtn{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;font-weight:900;padding:7px 10px;line-height:1;flex-shrink:0;transition:all .12s;}
+.btn-prod .qbtn:hover{color:var(--accent);}
+.btn-prod .qnum{font-size:.95rem;font-weight:900;color:var(--green);min-width:24px;text-align:center;}
+.btn-prod .qnum.zero{color:#475569;}
+.btn-prod .note-ic{border:none;border-left:1px solid var(--border);background:none;color:#475569;cursor:pointer;padding:7px 10px;font-size:.9rem;transition:all .12s;flex-shrink:0;}
+.btn-prod .note-ic.has{color:var(--accent);background:#1a0f00;}
+.btn-prod .note-ic:hover{color:var(--gold);}
+
+/* ── SCHERMO 3: RIEPILOGO ── */
+#riepilogo-wrap{flex:1;overflow-y:auto;padding:10px;}
+.r-sep{font-size:.7rem;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:8px 0 5px;display:flex;align-items:center;gap:6px;}
+.r-sep::after{content:'';flex:1;height:1px;background:var(--border);}
+.r-card{background:var(--mid);border:1.5px solid var(--border);border-radius:11px;margin-bottom:8px;overflow:hidden;}
+.r-card.has-note{border-color:var(--accent);}
+.r-top{display:flex;align-items:center;gap:8px;padding:9px 10px;}
+.qty-ctrl{display:flex;align-items:center;gap:4px;}
+.qbtn{background:#334155;border:none;border-radius:6px;width:28px;height:28px;color:var(--text);cursor:pointer;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.qbtn:hover{background:var(--accent);color:white;}
+.r-q{min-width:24px;text-align:center;font-size:.92rem;font-weight:900;}
+.r-name{flex:1;font-size:.8rem;font-weight:700;line-height:1.3;}
+.r-pr{font-size:.78rem;color:var(--accent);font-weight:700;white-space:nowrap;}
+.r-del{background:none;border:none;color:#475569;cursor:pointer;font-size:1rem;padding:3px 5px;}
+.r-del:hover{color:var(--red);}
+/* note area */
+.r-note{padding:0 10px 9px;}
+.note-btn{width:100%;background:none;border:1.5px dashed var(--border);border-radius:8px;padding:7px 10px;color:#64748b;font-size:.74rem;cursor:pointer;text-align:left;transition:all .15s;}
+.note-btn.has{border-color:var(--accent);color:var(--accent);background:#1a0f00;font-style:italic;}
+.note-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* FOOTER RIEPILOGO */
+#riepilogo-footer{padding:10px 12px;background:#0a0f1e;border-top:2px solid var(--border);flex-shrink:0;}
+#tot-prev{font-size:.92rem;font-weight:700;text-align:right;margin-bottom:8px;color:var(--gold);}
+#btn-invia{width:100%;background:linear-gradient(135deg,#ea580c,#f97316);color:white;border:none;border-radius:10px;padding:13px;font-size:.95rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
+#btn-invia:disabled{opacity:.5;cursor:not-allowed;}
+#btn-invia.sent{background:linear-gradient(135deg,#16a34a,#22c55e);}
+#btn-altra{width:100%;background:var(--mid);color:#94a3b8;border:1.5px solid var(--border);border-radius:9px;padding:9px;font-size:.8rem;font-weight:700;cursor:pointer;margin-top:7px;}
+
+/* BOTTOM NAV */
+#botnav{display:flex;background:#0a0f1e;border-top:2px solid var(--border);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom);}
+.bnav{flex:1;padding:8px 4px 10px;border:none;background:none;color:#475569;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.bnav .bi{font-size:1.35rem;}
+.bnav.active{color:var(--accent);}
+
+/* MODAL NOTE */
+.modal-over{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:flex-end;justify-content:center;}
+.modal-over.open{display:flex;}
+.modal-box{background:#1e293b;border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:520px;max-height:85vh;overflow-y:auto;}
+.modal-box h3{font-size:.95rem;font-weight:700;color:var(--white);margin-bottom:3px;}
+.modal-box p{font-size:.72rem;color:#64748b;margin-bottom:12px;}
+/* scorciatoie */
+.scorciatoie{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.sc-btn{border:1.5px solid var(--border);background:none;color:#94a3b8;border-radius:20px;padding:5px 12px;font-size:.74rem;cursor:pointer;transition:all .15s;}
+.sc-btn:active{background:var(--accent);border-color:var(--accent);color:white;transform:scale(.97);}
+.sc-btn.active{background:var(--accent);border-color:var(--accent);color:white;}
+textarea#note-inp{width:100%;background:#0f172a;border:1.5px solid var(--accent);border-radius:9px;padding:10px;color:var(--white);font-size:.88rem;outline:none;resize:none;margin-bottom:12px;}
+.modal-btns{display:flex;gap:8px;}
+.mbtn{flex:1;border:none;border-radius:8px;padding:11px;font-size:.85rem;font-weight:700;cursor:pointer;}
+.mbtn.cancel{background:#334155;color:#94a3b8;}
+.mbtn.save{background:var(--accent);color:white;}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>📱 Cameriere — Ranch Bar</h1>
+  <span id="sync" class="ok">🟢 Online</span>
+</div>
+
+<div id="steps">
+  <div class="step active" id="st1" onclick="goTo('tavoli')"><span class="sn">1</span> Tavolo</div>
+  <div class="step" id="st2" onclick="goTo('prodotti')"><span class="sn">2</span> Prodotti</div>
+  <div class="step" id="st3" onclick="goTo('riepilogo')"><span class="sn">3</span> Invia</div>
+  <div class="step" id="st4" onclick="goTo('ordine')"><span class="sn">4</span> Tavolo</div>
+</div>
+
+<!-- SCHERMO 1: TAVOLI -->
+<div class="screen active" id="scr-tavoli">
+  <div style="padding:10px 12px 0;">
+    <div class="tv-legenda">
+      <span><span class="leg-dot" style="background:#22c55e;"></span>Libero</span>
+      <span><span class="leg-dot" style="background:#ef4444;"></span>Occupato</span>
+      <span><span class="leg-dot" style="background:#f97316;"></span>Selezionato</span>
+    </div>
+  </div>
+  <div class="s-lbl" style="padding:4px 12px">📋 Tavoli</div>
+  <div class="tv-grid" id="tv-grid"></div>
+  <div class="s-lbl" style="padding:10px 12px 4px">🍺 Banco</div>
+  <div class="tv-grid" id="banco-grid"></div>
+</div>
+
+<!-- SCHERMO 2: PRODOTTI -->
+<div class="screen" id="scr-prodotti">
+  <div id="topbar">
+    <span id="tav-lbl">—</span>
+    <span id="cart-badge"></span>
+  </div>
+  <div id="cat-bar"></div>
+  <div id="search-wrap"><input id="search-inp" type="text" placeholder="🔍 Cerca prodotto..." autocomplete="off"></div>
+  <div id="prod-grid"></div>
+</div>
+
+<!-- SCHERMO 3: RIEPILOGO -->
+<div class="screen" id="scr-riepilogo">
+  <div id="riepilogo-wrap"></div>
+  <div id="riepilogo-footer">
+    <div id="tot-prev"></div>
+    <button id="btn-invia" onclick="inviaOrdine()">📤 Invia a Cucina &amp; Bar</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px;">
+      <button id="btn-altra" onclick="altraComanda()" style="background:#1e293b;color:#94a3b8;border:1.5px solid #334155;border-radius:9px;padding:9px;font-size:.8rem;font-weight:700;cursor:pointer;">➕ Stessa tavolo</button>
+      <button id="btn-nuova" onclick="nuovaComanda()" style="background:#1e293b;color:#94a3b8;border:1.5px solid #334155;border-radius:9px;padding:9px;font-size:.8rem;font-weight:700;cursor:pointer;">🍽️ Altro tavolo</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCHERMATA ORDINE TAVOLO -->
+<div class="screen" id="scr-ordine">
+  <div class="ord-header">
+    <h3 id="ord-tav-title">📋 Ordine Tavolo</h3>
+    <p id="ord-tav-sub">Prodotti già presenti nel conto</p>
+  </div>
+  <div id="ord-content"></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div id="botnav">
+  <button class="bnav active" id="bn1" onclick="goTo('tavoli')"><span class="bi">🍽️</span>Tavolo</button>
+  <button class="bnav" id="bn2" onclick="goTo('prodotti')"><span class="bi">📦</span>Prodotti</button>
+  <button class="bnav" id="bn3" onclick="goTo('riepilogo')"><span class="bi">📋</span>Ordine</button>
+  <button class="bnav" id="bn4" onclick="goTo('ordine')"><span class="bi">🍽️</span>Tavolo</button>
+</div>
+
+<!-- MODAL NOTE/MODIFICHE -->
+<div class="modal-over" id="modal-note">
+  <div class="modal-box">
+    <h3 id="note-title">📝 Modifica</h3>
+    <p id="note-sub">Tocca le scorciatoie o scrivi liberamente</p>
+    <div class="scorciatoie" id="scorciatoie-grid"></div>
+    <textarea id="note-inp" rows="3" placeholder="es. senza cipolla, extra pomodoro, piatto + salsiccia + insalata..."></textarea>
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="chiudiNote()">Annulla</button>
+      <button class="mbtn save" onclick="salvaNote()">✅ Salva modifica</button>
+    </div>
+  </div>
+</div>
+
+<script>
+
+const SUPA_URL='https://wfvpunzvmoisuaeryffg.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmdnB1bnp2bW9pc3VhZXJ5ZmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMzc5OTAsImV4cCI6MjA5OTYxMzk5MH0.5-dRvP52uRMnOxkiecNIdH1on0N3_2aHEdV8awSYbIQ';
+const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+const CUCINA_CATS=["Taglieri", "Tostoni", "Insalate", "Burgers", "Panini", "Fritti", "Dolci", "Hot Dog & Salsicce", "Pizze Rosse", "Pizze Bianche", "Stuzzichini & Antipasti", "Cucina & Altro"];
+const BAR_CATS=["Birre alla Spina", "Birre in Bottiglia", "Birre Artigianali", "Cocktail", "Superalcolici", "Vini Rossi", "Vini Bianchi", "Vini Rosati", "Vini Spumanti", "Analcolici", "Caffetteria", "Drinks & Cocktail", "Dopocena & Amari", "Grappe Locali", "Bibite"];
+function fmt(n){return Number(n).toFixed(2).replace('.',',');}
+
+
+const prodotti = [{"name": "Tagliere Misto Salumi e Formaggi x1 persona", "price": 10.0, "cat": "Taglieri"}, {"name": "Tagliere Misto Salumi e Formaggi x2 persone", "price": 20.0, "cat": "Taglieri"}, {"name": "Tostoni Cotto (prosciutto cotto locale e formaggio)", "price": 8.0, "cat": "Tostoni"}, {"name": "Tostoni Speck e Funghi (Speck di Castrozza, formaggio, funghi misti)", "price": 10.0, "cat": "Tostoni"}, {"name": "Insalata Trentina (verde, funghi, cotto, trentingrana, noci, mais, pomodori, dressing)", "price": 10.0, "cat": "Insalate"}, {"name": "Insalata Pollosa (verde, pollo grigliato, pomodori, rucola, mais, salsa yogurt)", "price": 10.0, "cat": "Insalate"}, {"name": "Only Burger (bovino, lattuga, pomodoro)", "price": 12.0, "cat": "Burgers"}, {"name": "Coco Burger (bovino, cheddar, bacon croccante, lattuga, pomodoro)", "price": 13.0, "cat": "Burgers"}, {"name": "Ranch Burger (bovino, Brie, funghi misti, bacon, lattuga, pomodoro, salsa ranch)", "price": 14.0, "cat": "Burgers"}, {"name": "Fafo Burger (bovino, Primiero fresco, cipolla caramellata, rucola, pomodoro)", "price": 13.0, "cat": "Burgers"}, {"name": "Chicken Burger (pollo fritto, pomodoro, lattuga, maionese)", "price": 14.0, "cat": "Burgers"}, {"name": "Panino Trentino (Speck di Castrozza, Brie, funghi misti)", "price": 10.0, "cat": "Panini"}, {"name": "Panino Paneveggio (prosciutto tirolese, salame nostrano, Primiero fresco, lattuga)", "price": 11.0, "cat": "Panini"}, {"name": "Panino Vegetariano (verdure grigliate, pomodoro, Brie, funghi)", "price": 9.0, "cat": "Panini"}, {"name": "Patatine Fritte", "price": 5.0, "cat": "Fritti"}, {"name": "Jalapenos al Formaggio", "price": 6.0, "cat": "Fritti"}, {"name": "Roesti", "price": 6.0, "cat": "Fritti"}, {"name": "Alette di Pollo", "price": 6.0, "cat": "Fritti"}, {"name": "Dessert della Casa", "price": 5.0, "cat": "Dolci"}, {"name": "Hot Dog (Wurstel San Martino, cheddar, bacon, maionese)", "price": 11.0, "cat": "Hot Dog & Salsicce"}, {"name": "Salsiccia Lucanica fresca e Tosella", "price": 11.0, "cat": "Hot Dog & Salsicce"}, {"name": "Riegele Keller Artigianale 5% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Riegele Keller Artigianale 5% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Lagunitas IPA India Pale Ale 6.2% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Leffe Rossa 8.2% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Leffe Rossa 8.2% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Konig Ludwig Weizen 5.5% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Konig Ludwig Weizen 5.5% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Hacker-Pschorr Munchner Hell 5% 25cl", "price": 4.0, "cat": "Birre alla Spina"}, {"name": "Hacker-Pschorr Munchner Hell 5% 40cl", "price": 6.0, "cat": "Birre alla Spina"}, {"name": "Corona 33cl", "price": 3.0, "cat": "Birre in Bottiglia"}, {"name": "Erdinger Weizen Analcolica 33cl", "price": 3.0, "cat": "Birre in Bottiglia"}, {"name": "Heineken 33cl", "price": 3.0, "cat": "Birre in Bottiglia"}, {"name": "Heineken 50cl", "price": 8.0, "cat": "Birre in Bottiglia"}, {"name": "Birra Artigianale Goldon Ale 50cl", "price": 8.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Goldon Ale 33cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Alta Vienna 50cl", "price": 8.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Top Modhell 33cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Lipa 33cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Acqua Naturale 0.5L", "price": 1.5, "cat": "Bibite"}, {"name": "Acqua Naturale 0.75L", "price": 2.5, "cat": "Bibite"}, {"name": "Coca Cola", "price": 3.0, "cat": "Bibite"}, {"name": "Fanta", "price": 3.0, "cat": "Bibite"}, {"name": "Sprite", "price": 3.0, "cat": "Bibite"}, {"name": "Te Pesca Limone", "price": 3.0, "cat": "Bibite"}, {"name": "Tonica", "price": 3.0, "cat": "Bibite"}, {"name": "Succo di Frutta", "price": 3.0, "cat": "Bibite"}, {"name": "Lemon Soda", "price": 3.5, "cat": "Bibite"}, {"name": "Red Bull", "price": 3.0, "cat": "Bibite"}, {"name": "Crodino", "price": 3.0, "cat": "Bibite"}, {"name": "Gingerino", "price": 3.0, "cat": "Bibite"}, {"name": "Genziana Lurisa", "price": 3.0, "cat": "Bibite"}, {"name": "La Vis Nosiola 75cl", "price": 16.0, "cat": "Vini Bianchi"}, {"name": "Muller-Thurgau Roberta Fugatti 75cl", "price": 18.0, "cat": "Vini Bianchi"}, {"name": "Gewurztraminer Roberta Fugatti 75cl", "price": 22.0, "cat": "Vini Bianchi"}, {"name": "Follador Foselios Prosecco Brut DOCG 75cl", "price": 18.0, "cat": "Vini Bianchi"}, {"name": "Follador Xzero Prosecco Extra Brut DOCG 75cl", "price": 20.0, "cat": "Vini Bianchi"}, {"name": "Trentino DOC Brut 75cl", "price": 50.0, "cat": "Vini Bianchi"}, {"name": "Calice Vino Bianco", "price": 5.0, "cat": "Vini Bianchi"}, {"name": "Teroldego R. Fugatti 75cl", "price": 18.0, "cat": "Vini Rossi"}, {"name": "Lagrein Alto Adige Von Blumen 75cl", "price": 25.0, "cat": "Vini Rossi"}, {"name": "Pinot Nero Alto Adige Von Blumen 75cl", "price": 26.0, "cat": "Vini Rossi"}, {"name": "Valpolicella Rio Albo Ca Rugate 75cl", "price": 19.0, "cat": "Vini Rossi"}, {"name": "Calice Vino Rosso", "price": 5.0, "cat": "Vini Rossi"}, {"name": "Spritz Aperol", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Spritz Campari", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Spritz Limoncello", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Americano", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Negroni", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Vodka Tonic", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Vodka Red Bull", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Base", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Premium", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "London Dry", "price": 10.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Malfy Rosa", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Gin Mare", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Ginnico", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Hugo", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Monte Cola", "price": 7.0, "cat": "Drinks & Cocktail"}, {"name": "Jager Coke", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Jagerbomb", "price": 8.0, "cat": "Drinks & Cocktail"}, {"name": "Amaro", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Fernet Branca", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Brancamenta", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Vecchio Amaro del Capo", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Jagermeister", "price": 3.0, "cat": "Dopocena & Amari"}, {"name": "Montenegro", "price": 4.0, "cat": "Dopocena & Amari"}, {"name": "Unicum Zwack", "price": 5.0, "cat": "Dopocena & Amari"}, {"name": "Petrus", "price": 3.0, "cat": "Dopocena & Amari"}, {"name": "Baileys", "price": 3.0, "cat": "Dopocena & Amari"}, {"name": "Bombardino", "price": 5.0, "cat": "Dopocena & Amari"}, {"name": "Stravecchio Branca", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Brandy", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Puch all Arancia", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Barcelo Blanco Rum", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Barcelo Dorado Rum", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Jack Daniel's Whisky", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Jameson Whiskey Black Barrel", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Amaretto di Saronno", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Limoncello", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Liquirizia", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Bourbon Whiskey", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Talisker Skye Scotch Whiskey", "price": 6.0, "cat": "Dopocena & Amari"}, {"name": "Grappa Camomilla", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Cirmolo", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Fieno", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Nocciola", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Cumino", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Ginepro", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Genziana", "price": 4.0, "cat": "Grappe Locali"}, {"name": "Grappa Pino Mugo", "price": 4.0, "cat": "Grappe Locali"}];
+let SCORCIATOIE = {};
+const NUM_TAVOLI=30, NUM_BANCO=10;
+
+// ── CARICA SCORCIATOIE DA SUPABASE ──────────────────────────────
+async function caricaScorciatoie(){
+  try{
+    const{data,error}=await supa.from('scorciatoie').select('*').order('ordine');
+    if(error) throw error;
+    SCORCIATOIE={};
+    (data||[]).forEach(s=>{
+      if(!SCORCIATOIE[s.categoria]) SCORCIATOIE[s.categoria]=[];
+      SCORCIATOIE[s.categoria].push(s.testo);
+    });
+  }catch(e){ console.warn('Scorciatoie non disponibili',e); }
+}
+
+// Realtime scorciatoie
+supa.channel('cam_sc')
+  .on('postgres_changes',{event:'*',schema:'public',table:'scorciatoie'},()=>caricaScorciatoie())
+  .subscribe();
+
+let selTavolo=null, cart=[], currentCat='', searchQ='', noteIdx=-1;
+let tavoliStato={}; // stato tavoli da Supabase
+
+// ── NAVIGAZIONE ──────────────────────────────────────────────────
+function goTo(name){
+  if(name!=='tavoli'&&!selTavolo){alert('Seleziona prima un tavolo!');return;}
+  if(name==='riepilogo'&&!cart.length){alert('Aggiungi almeno un prodotto!');return;}
+  const screens=['tavoli','prodotti','riepilogo','ordine'];
+  screens.forEach((s,i)=>{
+    document.getElementById('scr-'+s).classList.toggle('active',s===name);
+    const bn=document.getElementById('bn'+(i+1));
+    if(bn) bn.classList.toggle('active',s===name);
+    const st=document.getElementById('st'+(i+1));
+    if(st){
+      st.classList.remove('active','done');
+      const cur=screens.indexOf(name);
+      if(i<cur) st.classList.add('done');
+      else if(i===cur) st.classList.add('active');
+    }
+  });
+  if(name==='prodotti') renderProdotti();
+  if(name==='riepilogo') renderRiepilogo();
+  if(name==='ordine') renderOrdineTavolo();}
+
+// ── TAVOLI ───────────────────────────────────────────────────────
+function renderTavoli(){
+  ['tv-grid','banco-grid'].forEach(id=>document.getElementById(id).innerHTML='');
+  const tg=document.getElementById('tv-grid');
+  const bg=document.getElementById('banco-grid');
+
+  for(let i=1;i<=NUM_TAVOLI;i++){
+    const stato=tavoliStato[String(i)];
+    const occ=stato&&stato.items&&stato.items.length>0;
+    const tot=occ?stato.items.reduce((s,x)=>s+x.price*x.qty,0):0;
+    const b=document.createElement('button');
+    b.className='btn-tv'+(occ?' occ':'')+(selTavolo===i?' sel':'');
+    b.innerHTML=`<span class="tn">T${i}</span><span class="ts">${occ?'€'+tot.toFixed(0):'libero'}</span>`;
+    b.onclick=()=>{selTavolo=i;renderTavoli();goTo('prodotti');};
+    tg.appendChild(b);
+  }
+  for(let i=1;i<=NUM_BANCO;i++){
+    const key='B'+i;
+    const stato=tavoliStato[key];
+    const occ=stato&&stato.items&&stato.items.length>0;
+    const tot=occ?stato.items.reduce((s,x)=>s+x.price*x.qty,0):0;
+    const b=document.createElement('button');
+    b.className='btn-tv'+(occ?' occ':'')+(selTavolo===key?' sel':'');
+    b.innerHTML=`<span class="tn">B${i}</span><span class="ts">${occ?'€'+tot.toFixed(0):'libero'}</span>`;
+    b.onclick=()=>{selTavolo=key;renderTavoli();goTo('prodotti');};
+    bg.appendChild(b);
+  }
+}
+
+// Carica stato tavoli da Supabase
+async function caricaStato(){
+  try{
+    const{data,error}=await supa.from('tavoli_stato').select('id,stato');
+    if(error) throw error;
+    tavoliStato={};
+    (data||[]).forEach(r=>tavoliStato[r.id]=r.stato);
+    renderTavoli();
+    setSyncOk(true);
+  }catch(e){setSyncOk(false);}
+}
+
+// Realtime per aggiornare stato tavoli
+function avviaRealtimeTavoli(){
+  supa.channel('cam_tavoli')
+    .on('postgres_changes',{event:'*',schema:'public',table:'tavoli_stato'},p=>{
+      if(p.new&&p.new.id) tavoliStato[p.new.id]=p.new.stato;
+      renderTavoli();
+    })
+    .subscribe(s=>setSyncOk(s==='SUBSCRIBED'));
+}
+
+function setSyncOk(ok){
+  const el=document.getElementById('sync');
+  el.className=ok?'ok':'err';
+  el.textContent=ok?'🟢 Online':'🔴 Offline';
+}
+
+// ── CATEGORIE ────────────────────────────────────────────────────
+const CAT_ICON={"Birre alla Spina":"🍺","Birre in Bottiglia":"🍾","Birre Artigianali":"🏺","Cocktail":"🍹","Superalcolici":"🥃","Vini Rossi":"🍷","Vini Bianchi":"🥂","Vini Rosati":"🌸","Vini Spumanti":"🫧","Analcolici":"🧃","Caffetteria":"☕","Hamburger":"🍔","Panini":"🥖","Pizze Rosse":"🍕","Pizze Bianche":"🫓","Stuzzichini & Antipasti":"🧆","Dolci & Dessert":"🍰","Cucina & Altro":"🍽️","Taglieri":"🧀","Tostoni":"🥪","Insalate":"🥗","Burgers":"🍔","Fritti":"🍟","Dolci":"🍰","Hot Dog & Salsicce":"🌭","Bibite":"🥤","Drinks & Cocktail":"🍹","Dopocena & Amari":"🥃","Grappe Locali":"🫙"};
+
+function renderCatBar(){
+  const cats=[...new Set(prodotti.map(p=>p.cat))];
+  if(!currentCat) currentCat=cats[0]||'';
+  const bar=document.getElementById('cat-bar');
+  bar.innerHTML='';
+  cats.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='cat-btn'+(c===currentCat?' active':'');
+    b.textContent=(CAT_ICON[c]||'🍽️')+' '+c;
+    b.onclick=()=>{currentCat=c;searchQ='';document.getElementById('search-inp').value='';renderCatBar();renderProdGrid();};
+    bar.appendChild(b);
+  });
+}
+
+// ── PRODOTTI ─────────────────────────────────────────────────────
+function renderProdotti(){
+  document.getElementById('tav-lbl').textContent=String(selTavolo).startsWith('B')?'Banco '+String(selTavolo).slice(1):'Tavolo '+selTavolo;
+  aggBadge(); renderCatBar(); renderProdGrid();
+}
+
+function renderProdGrid(){
+  const q=searchQ.toLowerCase();
+  const lista=q?prodotti.filter(p=>p.name.toLowerCase().includes(q)):prodotti.filter(p=>p.cat===currentCat);
+  const grid=document.getElementById('prod-grid');
+  grid.innerHTML='';
+  lista.forEach(prod=>{
+    const inCart=cart.find(i=>i.name===prod.name);
+    const qty=inCart?inCart.qty:0;
+    const hasNote=inCart&&inCart.note&&inCart.note.trim();
+    const idx=inCart?cart.indexOf(inCart):-1;
+
+    const card=document.createElement('div');
+    card.className='btn-prod'+(qty>0?' in-cart':'');
+    card.innerHTML=`
+      <div class="p-body" onclick="addCart(${JSON.stringify(prod).replace(/"/g,'&quot;')})">
+        <span class="pn">${prod.name}</span>
+        <span class="pp">€ ${fmt(prod.price)}</span>
+      </div>
+      <div class="p-footer">
+        <div class="qty-row">
+          <button class="qbtn" onclick="event.stopPropagation();chQtyProd('${prod.name}',-1)" ${qty===0?'style="opacity:.3"':''}>−</button>
+          <span class="qnum ${qty===0?'zero':''}">${qty===0?'0':qty}</span>
+          <button class="qbtn" onclick="event.stopPropagation();addCartByName('${prod.name}')">+</button>
+        </div>
+        <button class="note-ic ${hasNote?'has':''}" onclick="event.stopPropagation();apriNoteProd('${prod.name}')" title="${hasNote?'Nota: '+inCart.note:'Aggiungi nota'}">
+          ${hasNote?'📝':'✏️'}
+        </button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById('search-inp').addEventListener('input',function(){
+  searchQ=this.value.trim();renderProdGrid();
+});
+
+// ── CART ─────────────────────────────────────────────────────────
+function addCart(prod){
+  const ex=cart.find(i=>i.name===prod.name);
+  if(ex) ex.qty++;
+  else cart.push({name:prod.name,price:prod.price,cat:prod.cat||'',qty:1,note:''});
+  aggBadge(); renderProdGrid();
+}
+function addCartByName(name){
+  const prod=prodotti.find(p=>p.name===name);
+  if(prod) addCart(prod);
+}
+function chQtyProd(name,d){
+  const idx=cart.findIndex(i=>i.name===name);
+  if(idx<0) return;
+  cart[idx].qty+=d;
+  if(cart[idx].qty<=0) cart.splice(idx,1);
+  aggBadge(); renderProdGrid();
+}
+function apriNoteProd(name){
+  const idx=cart.findIndex(i=>i.name===name);
+  if(idx<0){
+    // aggiungi prima con qty 1
+    const prod=prodotti.find(p=>p.name===name);
+    if(prod){ cart.push({name:prod.name,price:prod.price,cat:prod.cat||'',qty:1,note:''}); aggBadge(); }
+    apriNote(cart.length-1);
+  } else {
+    apriNote(idx);
+  }
+}
+function aggBadge(){
+  const n=cart.reduce((s,i)=>s+i.qty,0);
+  const el=document.getElementById('cart-badge');
+  el.textContent=n?n+' art.':''; el.style.display=n?'inline':'none';
+}
+function chQty(idx,d){
+  cart[idx].qty+=d;
+  if(cart[idx].qty<=0) cart.splice(idx,1);
+  renderRiepilogo();
+}
+
+// ── MODAL NOTE ────────────────────────────────────────────────────
+function apriNote(idx){
+  noteIdx=idx;
+  const item=cart[idx];
+  document.getElementById('note-title').textContent='✏️ '+item.name;
+  document.getElementById('note-sub').textContent='Tocca le scorciatoie o scrivi liberamente le modifiche';
+  document.getElementById('note-inp').value=item.note||'';
+
+  // Scorciatoie per categoria
+  const sc=SCORCIATOIE[item.cat]||SCORCIATOIE['default'];
+  const grid=document.getElementById('scorciatoie-grid');
+  grid.innerHTML='';
+  sc.forEach(s=>{
+    const b=document.createElement('button');
+    b.className='sc-btn';
+    const nota=item.note||'';
+    if(nota.includes(s)) b.classList.add('active');
+    b.textContent=s;
+    b.onclick=()=>toggleScorciatoia(b,s);
+    grid.appendChild(b);
+  });
+
+  document.getElementById('modal-note').classList.add('open');
+  setTimeout(()=>document.getElementById('note-inp').scrollIntoView({behavior:'smooth'}),100);
+}
+
+function toggleScorciatoia(btn,testo){
+  const inp=document.getElementById('note-inp');
+  btn.classList.toggle('active');
+  const attive=Array.from(document.querySelectorAll('.sc-btn.active')).map(b=>b.textContent);
+  const manuale=inp.value.replace(/^[^•]*•.*$/gm,'').trim();
+  // Ricostruisci nota: scorciatoie + testo manuale
+  const parti=attive.length?attive.join(', '):'';
+  inp.value=parti+(parti&&manuale?'\n'+manuale:manuale);
+}
+
+function chiudiNote(){
+  document.getElementById('modal-note').classList.remove('open');
+  noteIdx=-1;
+}
+function salvaNote(){
+  if(noteIdx>=0) cart[noteIdx].note=document.getElementById('note-inp').value.trim();
+  chiudiNote(); renderRiepilogo();
+}
+
+// ── RIEPILOGO ────────────────────────────────────────────────────
+function renderRiepilogo(){
+  const wrap=document.getElementById('riepilogo-wrap');
+  if(!cart.length){wrap.innerHTML='<div style="text-align:center;color:#475569;padding:40px;font-size:.9rem;">Nessun prodotto</div>';return;}
+
+  const cucina=cart.filter(i=>CUCINA_CATS.includes(i.cat));
+  const bar=cart.filter(i=>BAR_CATS.includes(i.cat));
+  const altro=cart.filter(i=>!CUCINA_CATS.includes(i.cat)&&!BAR_CATS.includes(i.cat));
+
+  function grp(items,titolo,col){
+    if(!items.length) return '';
+    let h=`<div class="r-sep" style="color:${col}">${titolo}</div>`;
+    items.forEach(item=>{
+      const idx=cart.indexOf(item);
+      const hasNote=!!(item.note&&item.note.trim());
+      h+=`<div class="r-card${hasNote?' has-note':''}">
+        <div class="r-top">
+          <div class="qty-ctrl">
+            <button class="qbtn" onclick="chQty(${idx},-1)">−</button>
+            <span class="r-q">${item.qty}</span>
+            <button class="qbtn" onclick="chQty(${idx},+1)">+</button>
+          </div>
+          <span class="r-name">${item.name}</span>
+          <span class="r-pr">€ ${fmt(item.price*item.qty)}</span>
+          <button class="r-del" onclick="chQty(${idx},-999)">🗑️</button>
+        </div>
+        <div class="r-note">
+          <button class="note-btn${hasNote?' has':''}" onclick="apriNote(${idx})">
+            ${hasNote?'📝 '+item.note:'✏️ Aggiungi modifica (senza cipolla, extra pomodoro...)'}
+          </button>
+        </div>
+      </div>`;
+    });
+    return h;
+  }
+
+  wrap.innerHTML=grp(cucina,'🍳 CUCINA','#f97316')+grp(bar,'🍺 BAR','#3b82f6')+grp(altro,'📋 ALTRO','#94a3b8');
+  const tot=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  document.getElementById('tot-prev').textContent='Totale stimato: € '+fmt(tot);
+}
+
+// ── INVIO ─────────────────────────────────────────────────────────
+async function inviaOrdine(){
+  if(!selTavolo||!cart.length) return;
+  const btn=document.getElementById('btn-invia');
+  btn.disabled=true; btn.textContent='⏳ Invio in corso...';
+  const lbl=String(selTavolo).startsWith('B')?'Banco '+String(selTavolo).slice(1):'Tavolo '+selTavolo;
+  const gi=new Date().toISOString();
+
+  // Prepara record per cucina/bar
+  const records=cart.map(item=>{
+    const rep=CUCINA_CATS.includes(item.cat)?'cucina':BAR_CATS.includes(item.cat)?'bar':'cucina';
+    return {tavolo:String(selTavolo),tavolo_label:lbl,reparto:rep,articolo:item.name,quantita:item.qty,note:item.note||'',gruppo_invio:gi,stato:'attesa'};
+  });
+
+  try{
+    // 1. Invia a cucina/bar
+    const{error:e1}=await supa.from('ordini_cucina').insert(records);
+    if(e1) throw e1;
+
+    // 2. Aggiorna tavoli_stato — merge articoli nel conto della cassa
+    const{data:statoData}=await supa.from('tavoli_stato').select('stato').eq('id',String(selTavolo)).single();
+    const statoAttuale = statoData?.stato || {items:[],orario:null,coperto:0};
+    if(!statoAttuale.items) statoAttuale.items=[];
+    if(!statoAttuale.orario) statoAttuale.orario=new Date().toLocaleTimeString('it-IT');
+
+    // Merge: aggiungi o incrementa quantità
+    cart.forEach(item=>{
+      const ex=statoAttuale.items.find(i=>i.name===item.name);
+      if(ex) ex.qty+=item.qty;
+      else statoAttuale.items.push({name:item.name,price:item.price,cat:item.cat||'',qty:item.qty});
+    });
+
+    await supa.from('tavoli_stato').upsert({
+      id: String(selTavolo),
+      stato: statoAttuale,
+      aggiornato_il: new Date().toISOString()
+    },{onConflict:'id'});
+
+    // Successo
+    btn.textContent='✅ Inviato!'; btn.classList.add('sent');
+    setTimeout(()=>{
+      btn.textContent='📤 Invia a Cucina & Bar';
+      btn.classList.remove('sent');
+      btn.disabled=false;
+    },3000);
+    cart=[];
+    aggBadge();
+
+    // Aggiorna stato locale tavoli per mostrare occupato
+    if(!tavoliStato[String(selTavolo)]) tavoliStato[String(selTavolo)]={items:[],orario:null,coperto:0};
+    tavoliStato[String(selTavolo)]=statoAttuale;
+    renderTavoli();
+
+    document.getElementById('riepilogo-wrap').innerHTML=`
+      <div style="text-align:center;padding:40px 20px;">
+        <div style="font-size:3rem;margin-bottom:12px;">✅</div>
+        <div style="font-size:1.1rem;font-weight:700;color:#22c55e;margin-bottom:6px;">Ordine inviato!</div>
+        <div style="font-size:.85rem;color:#64748b;">${lbl} — ${new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>`;
+    document.getElementById('tot-prev').textContent='';
+
+  }catch(e){
+    alert('❌ Errore: '+e.message);
+    btn.textContent='📤 Invia a Cucina & Bar'; btn.disabled=false;
+  }
+}
+
+
+// ── ORDINE TAVOLO (stato attuale da Supabase) ─────────────────────
+async function renderOrdineTavolo(){
+  if(!selTavolo){ document.getElementById('ord-content').innerHTML='<div class="ord-empty">Nessun tavolo selezionato</div>'; return; }
+  const lbl=String(selTavolo).startsWith('B')?'Banco '+String(selTavolo).slice(1):'Tavolo '+selTavolo;
+  document.getElementById('ord-tav-title').textContent='📋 '+lbl;
+
+  // Leggi stato da Supabase
+  const{data}=await supa.from('tavoli_stato').select('stato').eq('id',String(selTavolo)).single();
+  const stato=data?.stato||{items:[]};
+  const items=stato.items||[];
+
+  const wrap=document.getElementById('ord-content');
+
+  if(!items.length){
+    wrap.innerHTML=`<div class="ord-empty">
+      <div style="font-size:2.5rem;margin-bottom:10px;">🍽️</div>
+      <div>Nessun prodotto ordinato per questo tavolo</div>
+      <div style="font-size:.78rem;color:#64748b;margin-top:6px;">Il tavolo è libero</div>
+    </div>
+    <div style="padding:12px;">
+      <button class="ord-refresh" onclick="goTo('prodotti')" style="background:var(--accent);color:white;border:none;">➕ Aggiungi consumazioni</button>
+      <button class="ord-refresh" onclick="renderOrdineTavolo()" style="margin-top:8px;">🔄 Aggiorna</button>
+    </div>`;
+    document.getElementById('ord-tav-sub').textContent='Tavolo libero';
+    return;
+  }
+
+  const tot=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const cop=(stato.coperto||0)*2;
+  document.getElementById('ord-tav-sub').textContent=items.length+' prodotti · Aperto alle '+(stato.orario||'—');
+
+  // Raggruppa per reparto
+  const cucina=items.filter(i=>CUCINA_CATS.includes(i.cat||''));
+  const bar=items.filter(i=>BAR_CATS.includes(i.cat||''));
+  const altro=items.filter(i=>!CUCINA_CATS.includes(i.cat||'')&&!BAR_CATS.includes(i.cat||''));
+
+  function grp(list,titolo){
+    if(!list.length) return '';
+    return `<div class="ord-sep">${titolo}</div>`+list.map((item,li)=>{
+      const idx=items.indexOf(item);
+      return `<div class="ord-item" id="ord-item-${idx}">
+        <div class="qty-ctrl" style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+          <button class="qbtn" onclick="cambiaQtyOrdine(${idx},-1)" style="width:26px;height:26px;border-radius:6px;border:none;background:#334155;color:#e2e8f0;cursor:pointer;font-size:1rem;font-weight:900;">−</button>
+          <span style="min-width:22px;text-align:center;font-size:.9rem;font-weight:900;color:var(--green);">${item.qty}</span>
+          <button class="qbtn" onclick="cambiaQtyOrdine(${idx},+1)" style="width:26px;height:26px;border-radius:6px;border:none;background:#334155;color:#e2e8f0;cursor:pointer;font-size:1rem;font-weight:900;">+</button>
+        </div>
+        <span class="ord-name">${item.name}</span>
+        <span class="ord-price">€ ${fmt(item.price*item.qty)}</span>
+        <button onclick="rimuoviDaOrdine(${idx})" style="background:none;border:none;color:#475569;cursor:pointer;font-size:1rem;padding:3px 5px;flex-shrink:0;">🗑️</button>
+      </div>`;
+    }).join('');
+  }
+
+  wrap.innerHTML=`
+    <div class="ord-section">
+      ${grp(cucina,'🍳 Cucina')}
+      ${grp(bar,'🍺 Bar')}
+      ${grp(altro,'📋 Altro')}
+    </div>
+    ${cop>0?`<div class="ord-section"><div class="ord-sep">Coperto</div><div class="ord-item"><span style="background:var(--accent);color:white;border-radius:6px;padding:3px 8px;font-weight:900;">${stato.coperto||0}x</span><span class="ord-name">Coperto</span><span class="ord-price">€ ${fmt(cop)}</span></div></div>`:''}
+    <div class="ord-section">
+      <div class="ord-tot"><span>Totale attuale:</span><strong>€ ${fmt(tot+cop)}</strong></div>
+      <button class="ord-refresh" onclick="goTo('prodotti')" style="background:var(--accent);color:white;border:none;margin-bottom:0;">➕ Aggiungi consumazioni</button>
+      <button class="ord-refresh" onclick="renderOrdineTavolo()">🔄 Aggiorna</button>
+    </div>`;
+
+  // Salva stato corrente per modifiche
+  window._ordineTavoloStato = stato;
+}
+
+// Cambia quantità di un articolo già ordinato
+async function cambiaQtyOrdine(idx, d){
+  if(!window._ordineTavoloStato) return;
+  const stato = window._ordineTavoloStato;
+  stato.items[idx].qty += d;
+  if(stato.items[idx].qty <= 0) stato.items.splice(idx,1);
+  try{
+    await supa.from('tavoli_stato').upsert({
+      id: String(selTavolo),
+      stato: stato,
+      aggiornato_il: new Date().toISOString()
+    },{onConflict:'id'});
+    renderOrdineTavolo();
+  }catch(e){ alert('Errore: '+e.message); }
+}
+
+// Rimuovi articolo dall'ordine
+async function rimuoviDaOrdine(idx){
+  if(!window._ordineTavoloStato) return;
+  const stato = window._ordineTavoloStato;
+  const item = stato.items[idx];
+  if(!confirm(`Rimuovere "${item.name}" dall'ordine?`)) return;
+  stato.items.splice(idx,1);
+  try{
+    await supa.from('tavoli_stato').upsert({
+      id: String(selTavolo),
+      stato: stato,
+      aggiornato_il: new Date().toISOString()
+    },{onConflict:'id'});
+    renderOrdineTavolo();
+  }catch(e){ alert('Errore: '+e.message); }
+}
+
+
+function altraComanda(){cart=[];goTo('prodotti');}
+function nuovaComanda(){cart=[];selTavolo=null;goTo('tavoli');}
+
+
+
+// ── INIT ──────────────────────────────────────────────────────────
+renderTavoli(); // mostra tavoli vuoti subito
+caricaScorciatoie();
+caricaStato(); // poi aggiorna con stato reale
+avviaRealtimeTavoli();
+setInterval(caricaStato,30000);
+</script>
+</body>
+</html>
