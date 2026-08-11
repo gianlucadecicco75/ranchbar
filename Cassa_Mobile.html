@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ranch Bar">
+<meta name="theme-color" content="#0f172a">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
+<title>🍺 Ranch Bar — Cassa Mobile</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --dark:#0f172a;--mid:#1e293b;--accent:#e94560;--green:#22c55e;
+  --gold:#fbbf24;--blue:#3b82f6;--white:#fff;--border:#334155;--text:#e2e8f0;
+  --orange:#f97316;
+}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--dark);color:var(--text);height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+#header{background:#0a0f1e;border-bottom:2px solid var(--border);padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+#header h1{font-size:.9rem;font-weight:900;color:var(--white);}
+#sync-badge{font-size:.65rem;padding:2px 7px;border-radius:10px;font-weight:700;}
+.s-ok{background:#14532d;color:#4ade80;} .s-err{background:#4a1a1a;color:#f87171;}
+#clock{margin-left:auto;font-family:monospace;font-size:.82rem;color:var(--gold);}
+
+/* BOTTOM NAV */
+#botnav{display:flex;background:#0a0f1e;border-top:2px solid var(--border);flex-shrink:0;padding-bottom:env(safe-area-inset-bottom);}
+.bnav{flex:1;padding:8px 4px 10px;border:none;background:none;color:#475569;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.bnav .bi{font-size:1.35rem;}
+.bnav.active{color:var(--accent);}
+.bnav .bn-badge{background:var(--accent);color:white;border-radius:10px;font-size:.55rem;padding:1px 5px;font-weight:900;display:none;}
+.bnav .bn-badge.show{display:inline;}
+
+/* SCREENS */
+.screen{flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0;}
+.screen.active{display:flex;}
+
+/* ══════════════════════════════════════════
+   SCHERMO TAVOLI
+══════════════════════════════════════════ */
+#scr-tavoli{overflow-y:auto;padding:10px;}
+.tv-section-lbl{font-size:.7rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;font-weight:700;padding:6px 0 4px;}
+.tv-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:8px;}
+.btn-tv{background:var(--mid);border:2px solid #22c55e;border-radius:9px;padding:8px 3px;cursor:pointer;text-align:center;color:var(--text);}
+.btn-tv.occ{border-color:var(--accent);background:#2a0a0a;}
+.btn-tv.sel{background:var(--accent);border-color:var(--accent);color:white;}
+.btn-tv .tn{font-size:.95rem;font-weight:900;display:block;}
+.btn-tv .ts{font-size:.58rem;color:#4ade80;display:block;margin-top:1px;}
+.btn-tv.occ .ts{color:#fca5a5;}
+.btn-tv.sel .ts{color:rgba(255,255,255,.8);}
+.tv-legenda{display:flex;gap:12px;margin-bottom:8px;font-size:.68rem;}
+.leg{display:flex;align-items:center;gap:4px;}
+.leg-dot{width:9px;height:9px;border-radius:50%;}
+
+/* ══════════════════════════════════════════
+   SCHERMO CONTO TAVOLO
+══════════════════════════════════════════ */
+#scr-conto{}
+#conto-topbar{background:var(--mid);padding:9px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;border-bottom:1px solid var(--border);}
+#conto-tav-lbl{font-size:.95rem;font-weight:900;color:var(--gold);flex:1;}
+#btn-back-tav{background:none;border:none;color:#64748b;font-size:.82rem;cursor:pointer;padding:4px 8px;}
+#conto-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:8px;}
+.conto-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--mid);border:1px solid var(--border);border-radius:9px;margin-bottom:6px;}
+.ci-qty{background:var(--accent);color:white;border-radius:7px;min-width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:.88rem;font-weight:900;flex-shrink:0;}
+.ci-name{flex:1;font-size:.82rem;font-weight:600;line-height:1.3;}
+.ci-price{font-size:.8rem;color:var(--accent);font-weight:700;white-space:nowrap;}
+.ci-btns{display:flex;gap:4px;flex-shrink:0;}
+.ci-btn{background:#334155;border:none;border-radius:6px;width:26px;height:26px;color:var(--text);cursor:pointer;font-size:.9rem;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.ci-btn:hover{background:var(--accent);color:white;}
+.ci-sep{font-size:.68rem;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:6px 0 3px;}
+.conto-vuoto{text-align:center;padding:40px 20px;color:#475569;font-size:.88rem;}
+#conto-footer{background:#0a0f1e;border-top:2px solid var(--border);padding:10px 12px;flex-shrink:0;}
+.cf-row{display:flex;justify-content:space-between;font-size:.8rem;padding:2px 0;}
+.cf-tot{display:flex;justify-content:space-between;align-items:center;padding:8px 0 6px;border-top:1px solid var(--border);margin-top:4px;}
+.cf-tot span{font-size:.82rem;color:var(--gold);font-weight:700;}
+.cf-tot strong{font-size:1.2rem;color:white;font-weight:900;}
+.coperto-row-m{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--border);}
+.coperto-row-m label{font-size:.78rem;color:#94a3b8;}
+.coperto-row-m input{width:52px;padding:4px 8px;border:1.5px solid var(--border);border-radius:7px;background:#1e293b;color:white;font-size:.88rem;text-align:center;outline:none;}
+.conto-btns-m{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px;}
+.conto-btns-m .btn3{grid-column:1/-1;}
+.cbtn-m{border:none;border-radius:9px;padding:11px;font-size:.82rem;font-weight:700;cursor:pointer;}
+.cbtn-incassa{background:var(--accent);color:white;}
+.cbtn-preconto{background:#334155;color:#94a3b8;}
+.cbtn-libera{background:#1e293b;color:#64748b;border:1.5px solid var(--border);}
+.cbtn-aggiungi{background:var(--orange);color:white;}
+
+/* ══════════════════════════════════════════
+   SCHERMO PRODOTTI
+══════════════════════════════════════════ */
+#scr-prodotti{}
+#prod-topbar{background:var(--mid);padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;border-bottom:1px solid var(--border);}
+#prod-tav-lbl{font-size:.85rem;font-weight:700;color:var(--gold);}
+#prod-cart-badge{background:var(--accent);color:white;border-radius:12px;padding:2px 8px;font-size:.72rem;font-weight:900;margin-left:auto;display:none;}
+#search-wrap{padding:7px 10px;background:var(--mid);flex-shrink:0;}
+#search-inp{width:100%;padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;background:#0f172a;color:var(--white);font-size:.88rem;outline:none;}
+#search-inp:focus{border-color:var(--accent);}
+#cat-bar{display:flex;flex-wrap:wrap;background:var(--mid);border-bottom:2px solid var(--border);flex-shrink:0;max-height:105px;overflow-y:auto;}
+.cat-btn{border:none;background:none;padding:9px 12px;color:#64748b;font-size:.8rem;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+.cat-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+#prod-grid{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;grid-template-columns:repeat(2,1fr);gap:7px;padding:9px;align-content:start;}
+.btn-prod{background:var(--mid);border:1.5px solid var(--border);border-radius:11px;padding:0;text-align:left;display:flex;flex-direction:column;overflow:hidden;}
+.btn-prod.in-cart{border-color:var(--accent);background:#1a0800;}
+.p-body{padding:10px 10px 6px;cursor:pointer;flex:1;}
+.p-body:active{opacity:.8;}
+.pn{font-size:.8rem;font-weight:700;color:var(--text);line-height:1.3;display:block;margin-bottom:3px;}
+.pp{font-size:1rem;font-weight:900;color:var(--accent);display:block;}
+.p-footer{display:flex;align-items:center;border-top:1px solid var(--border);background:rgba(0,0,0,.15);}
+.p-qty-row{display:flex;align-items:center;flex:1;}
+.pqbtn{background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;font-weight:900;padding:7px 10px;line-height:1;}
+.pqbtn:active{color:var(--accent);}
+.pqnum{min-width:22px;text-align:center;font-size:.92rem;font-weight:900;color:var(--green);}
+.pqnum.zero{color:#475569;}
+#prod-send-bar{background:#0a0f1e;border-top:2px solid var(--border);padding:8px 12px;flex-shrink:0;display:none;}
+#prod-send-bar.show{display:block;}
+#btn-invia-prod{width:100%;background:linear-gradient(135deg,#ea580c,#f97316);color:white;border:none;border-radius:9px;padding:12px;font-size:.92rem;font-weight:900;cursor:pointer;}
+#btn-invia-prod.sent{background:linear-gradient(135deg,#16a34a,#22c55e);}
+
+/* MODAL PAGAMENTO */
+.modal-over{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;align-items:flex-end;justify-content:center;}
+.modal-over.open{display:flex;}
+.modal-box{background:#1e293b;border-radius:18px 18px 0 0;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;}
+.modal-box h3{font-size:1rem;font-weight:700;margin-bottom:14px;}
+.pay-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.pay-btn{border:2px solid var(--border);background:var(--mid);border-radius:10px;padding:12px 6px;cursor:pointer;text-align:center;color:var(--text);font-size:.75rem;font-weight:700;}
+.pay-btn.sel{border-color:var(--accent);background:#2a0a0a;color:var(--accent);}
+.pay-btn .pi{font-size:1.4rem;display:block;margin-bottom:4px;}
+.pay-inp-row{margin-bottom:12px;}
+.pay-inp-row label{font-size:.78rem;color:#94a3b8;display:block;margin-bottom:4px;}
+.pay-inp-row input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:#0f172a;color:white;font-size:1rem;outline:none;}
+.pay-total{background:#0f172a;border-radius:9px;padding:12px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+.pay-total span{font-size:.82rem;color:#94a3b8;}
+.pay-total strong{font-size:1.3rem;color:white;font-weight:900;}
+.resto-row{background:#14532d;border-radius:8px;padding:8px 12px;margin-bottom:12px;display:none;justify-content:space-between;}
+.resto-row span{font-size:.82rem;color:#4ade80;}
+.resto-row strong{font-size:1rem;color:#4ade80;font-weight:900;}
+.modal-btns{display:flex;gap:8px;}
+.mbtn{flex:1;border:none;border-radius:9px;padding:12px;font-size:.88rem;font-weight:700;cursor:pointer;}
+.mbtn.cancel{background:#334155;color:#94a3b8;}
+.mbtn.confirm{background:var(--accent);color:white;}
+.mbtn.confirm:disabled{opacity:.4;cursor:not-allowed;}
+
+/* SCONTO MOBILE */
+.sconto-row-m{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.sconto-row-m select{padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;background:#1e293b;color:white;font-size:.8rem;outline:none;}
+.sconto-row-m input{width:70px;padding:5px 8px;border:1.5px solid var(--border);border-radius:7px;background:#1e293b;color:white;font-size:.8rem;text-align:center;outline:none;}
+.sconto-row-m label{font-size:.78rem;color:#94a3b8;}
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>🍺 Ranch Bar</h1>
+  <span id="sync-badge" class="s-ok">🟢</span>
+  <div id="clock"></div>
+</div>
+
+<!-- SCHERMO TAVOLI -->
+<div class="screen active" id="scr-tavoli">
+  <div style="padding:10px 10px 0;">
+    <div class="tv-legenda">
+      <div class="leg"><span class="leg-dot" style="background:#22c55e"></span>Libero</div>
+      <div class="leg"><span class="leg-dot" style="background:#e94560"></span>Occupato</div>
+    </div>
+    <div class="tv-section-lbl">📋 Tavoli</div>
+    <div class="tv-grid" id="tv-grid"></div>
+    <div class="tv-section-lbl">🍺 Banco</div>
+    <div class="tv-grid" id="banco-grid"></div>
+  </div>
+</div>
+
+<!-- SCHERMO CONTO -->
+<div class="screen" id="scr-conto">
+  <div id="conto-topbar">
+    <button id="btn-back-tav" onclick="goScreen('tavoli')">◀ Tavoli</button>
+    <span id="conto-tav-lbl">—</span>
+  </div>
+  <div id="conto-body"></div>
+  <div id="conto-footer">
+    <div class="coperto-row-m">
+      <label>👥 Coperti</label>
+      <input type="number" id="cop-num" value="0" min="0" max="30" oninput="aggiornaConto()">
+      <span style="font-size:.75rem;color:#64748b;">× € <span id="cop-prezzo-m">2,00</span></span>
+    </div>
+    <div class="cf-row"><span>Subtotale</span><span id="m-subtotale">€ 0,00</span></div>
+    <div class="cf-row" id="m-sconto-row" style="display:none;color:#22c55e;"><span>Sconto</span><span id="m-sconto-val">€ 0,00</span></div>
+    <div class="cf-row"><span>Coperto</span><span id="m-coperto">€ 0,00</span></div>
+    <div class="sconto-row-m">
+      <label>Sconto:</label>
+      <select id="m-sconto-tipo"><option value="pct">%</option><option value="eur">€</option></select>
+      <input type="number" id="m-sconto-imp" value="0" min="0" step="any" inputmode="decimal" oninput="aggiornaConto()">
+    </div>
+    <div class="cf-tot"><span>💰 TOTALE</span><strong id="m-totale">€ 0,00</strong></div>
+    <div class="conto-btns-m">
+      <button class="cbtn-m cbtn-preconto" onclick="stampaPreconto()">🖨️ Preconto</button>
+      <button class="cbtn-m cbtn-aggiungi" onclick="goScreen('prodotti')">➕ Aggiungi</button>
+      <button class="cbtn-m cbtn-incassa btn3" onclick="openPagamento()">💳 Incassa</button>
+      <button class="cbtn-m cbtn-libera btn3" onclick="liberaTavolo()" style="margin-top:0;">🔓 Libera tavolo</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCHERMO PRODOTTI -->
+<div class="screen" id="scr-prodotti">
+  <div id="prod-topbar">
+    <span id="prod-tav-lbl">—</span>
+    <span id="prod-cart-badge"></span>
+  </div>
+  <div id="search-wrap"><input id="search-inp" type="text" placeholder="🔍 Cerca prodotto..." autocomplete="off"></div>
+  <div id="cat-bar"></div>
+  <div id="prod-grid"></div>
+  <div id="prod-send-bar">
+    <button id="btn-invia-prod" onclick="inviaEAggiungi()">📤 Invia a Cucina & Bar</button>
+  </div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div id="botnav">
+  <button class="bnav active" id="bn-tav" onclick="goScreen('tavoli')"><span class="bi">🍽️</span>Tavoli</button>
+  <button class="bnav" id="bn-conto" onclick="goScreen('conto')"><span class="bi">🧾</span>Conto<span class="bn-badge" id="badge-conto"></span></button>
+  <button class="bnav" id="bn-prod" onclick="goScreen('prodotti')"><span class="bi">➕</span>Aggiungi</button>
+</div>
+
+<!-- MODAL PAGAMENTO -->
+<div class="modal-over" id="modal-pag">
+  <div class="modal-box">
+    <h3>💳 Incassa</h3>
+    <div class="pay-total"><span>Totale</span><strong id="pay-tot-lbl">€ 0,00</strong></div>
+    <div class="pay-grid">
+      <button class="pay-btn" onclick="selPay('Contanti',this)"><span class="pi">💵</span>Contanti</button>
+      <button class="pay-btn" onclick="selPay('Carta',this)"><span class="pi">💳</span>Carta</button>
+      <button class="pay-btn" onclick="selPay('Bancomat',this)"><span class="pi">🏧</span>Bancomat</button>
+      <button class="pay-btn" onclick="selPay('Diviso',this)"><span class="pi">🔀</span>Diviso</button>
+      <button class="pay-btn" onclick="selPay('Ticket',this)"><span class="pi">🎫</span>Ticket</button>
+      <button class="pay-btn" onclick="selPay('Altro',this)"><span class="pi">📝</span>Altro</button>
+    </div>
+    <div class="pay-inp-row" id="contanti-row" style="display:none;">
+      <label>Ricevuto €</label>
+      <input type="number" id="pay-ricevuto" inputmode="decimal" oninput="calcResto()" placeholder="0,00">
+    </div>
+    <div class="resto-row" id="resto-row">
+      <span>Resto</span><strong id="pay-resto">€ 0,00</strong>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closePagamento()">Annulla</button>
+      <button class="mbtn confirm" id="btn-conferma-pag" onclick="confermaPagamento()" disabled>✅ Conferma</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL='https://wfvpunzvmoisuaeryffg.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndmdnB1bnp2bW9pc3VhZXJ5ZmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMzc5OTAsImV4cCI6MjA5OTYxMzk5MH0.5-dRvP52uRMnOxkiecNIdH1on0N3_2aHEdV8awSYbIQ';
+const supa=supabase.createClient(SUPA_URL,SUPA_KEY);
+const CUCINA_CATS=["Taglieri", "Tostoni", "Insalate", "Burgers", "Panini", "Fritti", "Dolci", "Hot Dog & Salsicce", "Pizze Rosse", "Pizze Bianche", "Stuzzichini & Antipasti", "Cucina & Altro"];
+const BAR_CATS=["Birre alla Spina", "Birre in Bottiglia", "Birre Artigianali", "Cocktail", "Superalcolici", "Vini Rossi", "Vini Bianchi", "Vini Rosati", "Vini Spumanti", "Analcolici", "Caffetteria", "Drinks & Cocktail", "Dopocena & Amari", "Grappe Locali", "Bibite"];
+
+const prodotti=[{"name": "Tagliere Misto Salumi e Formaggi x1 persona", "price": 12, "cat": "Taglieri"}, {"name": "Tagliere Misto Salumi e Formaggi x2 persone", "price": 22, "cat": "Taglieri"}, {"name": "Tostoni Cotto (prosciutto cotto locale e formaggio)", "price": 8, "cat": "Tostoni"}, {"name": "Tostoni Speck e Funghi (Speck di Castrozza, formaggio, funghi misti)", "price": 10, "cat": "Tostoni"}, {"name": "Insalata Trentina (verde, funghi, cotto, trentingrana, noci, mais, pomodori, dressing)", "price": 13, "cat": "Insalate"}, {"name": "Insalata Pollosa (verde, pollo grigliato, pomodori, rucola, mais, salsa yogurt)", "price": 13, "cat": "Insalate"}, {"name": "Only Burger (bovino, lattuga, pomodoro)", "price": 12, "cat": "Burgers"}, {"name": "Coco Burger (bovino, cheddar, bacon croccante, lattuga, pomodoro)", "price": 13, "cat": "Burgers"}, {"name": "Ranch Burger (bovino, Brie, funghi misti, bacon, lattuga, pomodoro, salsa ranch)", "price": 14, "cat": "Burgers"}, {"name": "Fafo Burger (bovino, Primiero fresco, cipolla caramellata, rucola, pomodoro)", "price": 13, "cat": "Burgers"}, {"name": "Chicken Burger (pollo fritto, pomodoro, lattuga, maionese)", "price": 14, "cat": "Burgers"}, {"name": "Panino Trentino (Speck di Castrozza, Brie, funghi misti)", "price": 10, "cat": "Panini"}, {"name": "Panino Paneveggio (prosciutto tirolese, salame nostrano, Primiero fresco, lattuga)", "price": 11, "cat": "Panini"}, {"name": "Panino Vegetariano (verdure grigliate, pomodoro, Brie, funghi)", "price": 10, "cat": "Panini"}, {"name": "Patatine Fritte", "price": 5, "cat": "Fritti"}, {"name": "Jalapenos al Formaggio", "price": 6, "cat": "Fritti"}, {"name": "Roesti", "price": 6, "cat": "Fritti"}, {"name": "Alette di Pollo", "price": 6, "cat": "Fritti"}, {"name": "Dessert della Casa", "price": 5, "cat": "Dolci"}, {"name": "Hot Dog (Wurstel San Martino, cheddar, bacon, maionese)", "price": 11, "cat": "Hot Dog & Salsicce"}, {"name": "Salsiccia Lucanica fresca e Tosella", "price": 11, "cat": "Hot Dog & Salsicce"}, {"name": "Leffe Rossa PICCOLA", "price": 4, "cat": "Birre alla Spina"}, {"name": "Leffe Rossa MEDIA", "price": 8, "cat": "Birre alla Spina"}, {"name": "Corona 33cl", "price": 3, "cat": "Birre in Bottiglia"}, {"name": "Erdinger Weizen Analcolica 33cl", "price": 3, "cat": "Birre in Bottiglia"}, {"name": "Heineken 33cl", "price": 3, "cat": "Birre in Bottiglia"}, {"name": "Birra Artigianale Goldon Ale 50cl", "price": 8.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Alta Vienna 50cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Top Modhell 33cl", "price": 8.5, "cat": "Birre Artigianali"}, {"name": "Birra Artigianale Lipa 33cl", "price": 6.5, "cat": "Birre Artigianali"}, {"name": "Acqua 0.5L", "price": 1.5, "cat": "Bibite"}, {"name": "Acqua 0.75L", "price": 2.5, "cat": "Bibite"}, {"name": "Coca Cola", "price": 3, "cat": "Bibite"}, {"name": "Fanta", "price": 3, "cat": "Bibite"}, {"name": "Sprite", "price": 3, "cat": "Bibite"}, {"name": "Te Pesca Limone", "price": 3, "cat": "Bibite"}, {"name": "Tonica", "price": 3, "cat": "Bibite"}, {"name": "Succo di Frutta", "price": 3, "cat": "Bibite"}, {"name": "Lemon Soda", "price": 3.5, "cat": "Bibite"}, {"name": "Red Bull", "price": 3, "cat": "Bibite"}, {"name": "Gingerino", "price": 3, "cat": "Bibite"}, {"name": "Genziana Lurisa", "price": 3, "cat": "Bibite"}, {"name": "La Vis Nosiola 75cl", "price": 16, "cat": "Vini Bianchi"}, {"name": "Muller-Thurgau Roberta Fugatti 75cl", "price": 18, "cat": "Vini Bianchi"}, {"name": "Gewurztraminer Roberta Fugatti 75cl", "price": 22, "cat": "Vini Bianchi"}, {"name": "Follador Foselios Prosecco Brut DOCG 75cl", "price": 18, "cat": "Vini Bianchi"}, {"name": "Follador Xzero Prosecco Extra Brut DOCG 75cl", "price": 20, "cat": "Vini Bianchi"}, {"name": "Trentino DOC Brut 75cl", "price": 50, "cat": "Vini Bianchi"}, {"name": "Calice Vino Bianco", "price": 5, "cat": "Vini Bianchi"}, {"name": "Teroldego R. Fugatti 75cl", "price": 18, "cat": "Vini Rossi"}, {"name": "Lagrein Alto Adige Von Blumen 75cl", "price": 25, "cat": "Vini Rossi"}, {"name": "Pinot Nero Alto Adige Von Blumen 75cl", "price": 26, "cat": "Vini Rossi"}, {"name": "Valpolicella Rio Albo Ca Rugate 75cl", "price": 19, "cat": "Vini Rossi"}, {"name": "Calice Vino Rosso", "price": 5, "cat": "Vini Rossi"}, {"name": "Spritz Aperol", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "Spritz Campari", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "Spritz Limoncello", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "Americano", "price": 8, "cat": "Drinks & Cocktail"}, {"name": "Negroni", "price": 8, "cat": "Drinks & Cocktail"}, {"name": "Vodka Tonic", "price": 8, "cat": "Drinks & Cocktail"}, {"name": "Vodka Red Bull", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "Gin Base", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "Gin Premium", "price": 10, "cat": "Drinks & Cocktail"}, {"name": "London Dry", "price": 10, "cat": "Drinks & Cocktail"}, {"name": "Gin Malfy Rosa", "price": 10, "cat": "Drinks & Cocktail"}, {"name": "Gin Mare", "price": 10, "cat": "Drinks & Cocktail"}, {"name": "Ginnico", "price": 8, "cat": "Drinks & Cocktail"}, {"name": "Hugo", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "Monte Cola", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "Jager Coke", "price": 8, "cat": "Drinks & Cocktail"}, {"name": "Jagerbomb", "price": 8, "cat": "Drinks & Cocktail"}, {"name": "Amaro", "price": 4, "cat": "Dopocena & Amari"}, {"name": "Fernet Branca", "price": 4, "cat": "Dopocena & Amari"}, {"name": "Brancamenta", "price": 4, "cat": "Dopocena & Amari"}, {"name": "Vecchio Amaro del Capo", "price": 4, "cat": "Dopocena & Amari"}, {"name": "Jagermeister", "price": 3, "cat": "Dopocena & Amari"}, {"name": "Montenegro", "price": 4, "cat": "Dopocena & Amari"}, {"name": "Unicum Zwack", "price": 5, "cat": "Dopocena & Amari"}, {"name": "Petrus", "price": 3, "cat": "Dopocena & Amari"}, {"name": "Baileys", "price": 3, "cat": "Dopocena & Amari"}, {"name": "Bombardino", "price": 5, "cat": "Dopocena & Amari"}, {"name": "Stravecchio Branca", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Brandy", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Puch all Arancia", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Barcelo Blanco Rum", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Barcelo Dorado Rum", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Jack Daniel's Whisky", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Jameson Whiskey Black Barrel", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Amaretto di Saronno", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Limoncello", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Liquirizia", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Bourbon Whiskey", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Talisker Skye Scotch Whiskey", "price": 6, "cat": "Dopocena & Amari"}, {"name": "Grappa Camomilla", "price": 4, "cat": "Grappe Locali"}, {"name": "Grappa Cirmolo", "price": 4, "cat": "Grappe Locali"}, {"name": "Grappa Fieno", "price": 4, "cat": "Grappe Locali"}, {"name": "Grappa Nocciola", "price": 4, "cat": "Grappe Locali"}, {"name": "Grappa Cumino", "price": 4, "cat": "Grappe Locali"}, {"name": "Grappa Ginepro", "price": 4, "cat": "Grappe Locali"}, {"name": "Grappa Genziana", "price": 4, "cat": "Grappe Locali"}, {"name": "Grappa Pino Mugo", "price": 4, "cat": "Grappe Locali"}, {"name": "PIATTO TIPICO", "price": 18, "cat": "Taglieri"}, {"name": "CAFFE", "price": 1.5, "cat": "Dopocena & Amari"}, {"name": "CAFFE CORRETTO", "price": 2, "cat": "Dopocena & Amari"}, {"name": "CAPPUCCINO", "price": 2, "cat": "Dopocena & Amari"}, {"name": "GINSENG", "price": 1.6, "cat": "Dopocena & Amari"}, {"name": "CAFFE AMERICANO", "price": 1.7, "cat": "Dopocena & Amari"}, {"name": "CICOCCOLATA CALDA", "price": 3, "cat": "Dopocena & Amari"}, {"name": "BOMBARDINO", "price": 3, "cat": "Dopocena & Amari"}, {"name": "BIRRA PICCOLA", "price": 4, "cat": "Birre alla Spina"}, {"name": "BIRRA MEDIA", "price": 6, "cat": "Birre alla Spina"}, {"name": "Crodino", "price": 3, "cat": "Bibite"}, {"name": "Grappa BARRICATA", "price": 4, "cat": "Grappe Locali"}, {"name": "HAMBURGER PIATTO", "price": 10, "cat": "Burgers"}, {"name": "SALSICCIA PIATTO", "price": 10, "cat": "Burgers"}, {"name": "TISANA", "price": 3.5, "cat": "Bibite"}, {"name": "Panino Salsiccia", "price": 11, "cat": "Panini"}, {"name": "Panino solo Hamburgher", "price": 10, "cat": "Panini"}, {"name": "Calice Prosecco", "price": 5, "cat": "Bibite"}, {"name": "Calice Trento Doc", "price": 10, "cat": "Bibite"}, {"name": "orzo in tazza grande", "price": 3, "cat": "Dopocena & Amari"}, {"name": "Castagner", "price": 6, "cat": "Grappe Locali"}, {"name": "Sambuca", "price": 4, "cat": "Dopocena & Amari"}, {"name": "INSALTA + POMODORO", "price": 6, "cat": "Insalate"}, {"name": "Spritz Bianco", "price": 7, "cat": "Drinks & Cocktail"}, {"name": "wustel in piatto", "price": 6, "cat": "Burgers"}];
+const NUM_TAVOLI=30, NUM_BANCO=10;
+
+let selTavolo=null, tavoli={}, currentCat='', searchQ='', cart=[], prezzoC=2.0;
+let pushTimer=null, pushLock=false;
+
+// Inizializza struttura tavoli
+for(let i=1;i<=NUM_TAVOLI;i++) tavoli[i]={items:[],orario:null,coperto:0};
+for(let i=1;i<=NUM_BANCO;i++) tavoli['B'+i]={items:[],orario:null,coperto:0};
+
+function fmt(n){return Number(n).toFixed(2).replace('.',',');}
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('it-IT');}
+setInterval(updateClock,1000); updateClock();
+
+// ── NAVIGAZIONE ──────────────────────────────────────────────────
+function goScreen(name){
+  if(name==='conto'&&!selTavolo){alert('Seleziona prima un tavolo!');return;}
+  if(name==='prodotti'&&!selTavolo){alert('Seleziona prima un tavolo!');return;}
+  ['tavoli','conto','prodotti'].forEach(s=>{
+    document.getElementById('scr-'+s).classList.toggle('active',s===name);
+  });
+  document.getElementById('bn-tav').classList.toggle('active',name==='tavoli');
+  document.getElementById('bn-conto').classList.toggle('active',name==='conto');
+  document.getElementById('bn-prod').classList.toggle('active',name==='prodotti');
+  if(name==='conto') renderConto();
+  if(name==='prodotti') renderProdotti();
+}
+
+// ── TAVOLI ───────────────────────────────────────────────────────
+function renderTavoli(){
+  const tg=document.getElementById('tv-grid');
+  const bg=document.getElementById('banco-grid');
+  tg.innerHTML=''; bg.innerHTML='';
+  for(let i=1;i<=NUM_TAVOLI;i++){
+    const t=tavoli[i]; const occ=t.items&&t.items.length>0;
+    const tot=occ?t.items.reduce((s,x)=>s+x.price*x.qty,0):0;
+    const b=document.createElement('button');
+    b.className='btn-tv'+(occ?' occ':'')+(selTavolo===i?' sel':'');
+    b.innerHTML=`<span class="tn">T${i}</span><span class="ts">${occ?'€'+tot.toFixed(0):'libero'}</span>`;
+    b.onclick=()=>selectTavolo(i);
+    tg.appendChild(b);
+  }
+  for(let i=1;i<=NUM_BANCO;i++){
+    const key='B'+i; const t=tavoli[key]; const occ=t.items&&t.items.length>0;
+    const tot=occ?t.items.reduce((s,x)=>s+x.price*x.qty,0):0;
+    const b=document.createElement('button');
+    b.className='btn-tv'+(occ?' occ':'')+(selTavolo===key?' sel':'');
+    b.innerHTML=`<span class="tn">B${i}</span><span class="ts">${occ?'€'+tot.toFixed(0):'libero'}</span>`;
+    b.onclick=()=>selectTavolo(key);
+    bg.appendChild(b);
+  }
+}
+
+function selectTavolo(n){
+  selTavolo=n;
+  if(!tavoli[n].orario) tavoli[n].orario=new Date().toLocaleTimeString('it-IT');
+  renderTavoli();
+  goScreen('conto');
+}
+
+// ── CONTO ────────────────────────────────────────────────────────
+function renderConto(){
+  if(!selTavolo) return;
+  const t=tavoli[selTavolo];
+  const lbl=String(selTavolo).startsWith('B')?'Banco '+String(selTavolo).slice(1):'Tavolo '+selTavolo;
+  document.getElementById('conto-tav-lbl').textContent=lbl+(t.orario?' · '+t.orario:'');
+  document.getElementById('cop-num').value=t.coperto||0;
+  document.getElementById('badge-conto').textContent=t.items?t.items.length:0;
+  document.getElementById('badge-conto').classList.toggle('show',(t.items&&t.items.length>0));
+
+  const body=document.getElementById('conto-body');
+  if(!t.items||!t.items.length){
+    body.innerHTML='<div class="conto-vuoto">🍽️<br>Nessun prodotto<br><small>Tocca ➕ Aggiungi per iniziare</small></div>';
+    aggiornaConto(); return;
+  }
+  const cucina=t.items.filter(i=>CUCINA_CATS.includes(i.cat||''));
+  const bar=t.items.filter(i=>BAR_CATS.includes(i.cat||''));
+  const altro=t.items.filter(i=>!CUCINA_CATS.includes(i.cat||'')&&!BAR_CATS.includes(i.cat||''));
+
+  function grp(items,titolo){
+    if(!items.length) return '';
+    return `<div class="ci-sep">${titolo}</div>`+items.map(item=>{
+      const idx=t.items.indexOf(item);
+      return `<div class="conto-item">
+        <span class="ci-qty">${item.qty}</span>
+        <span class="ci-name">${item.name}</span>
+        <span class="ci-price">€${fmt(item.price*item.qty)}</span>
+        <div class="ci-btns">
+          <button class="ci-btn" onclick="cambiaQty(${idx},-1)">−</button>
+          <button class="ci-btn" onclick="cambiaQty(${idx},1)">+</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  body.innerHTML=grp(cucina,'🍳 Cucina')+grp(bar,'🍺 Bar')+grp(altro,'📋 Altro');
+  aggiornaConto();
+}
+
+function cambiaQty(idx,d){
+  if(!selTavolo) return;
+  const t=tavoli[selTavolo];
+  t.items[idx].qty+=d;
+  if(t.items[idx].qty<=0) t.items.splice(idx,1);
+  renderConto(); pushTavoli();
+}
+
+function aggiornaConto(){
+  if(!selTavolo) return;
+  const t=tavoli[selTavolo];
+  const items=t.items||[];
+  const sub=items.reduce((s,i)=>s+i.price*i.qty,0);
+  const cop=(parseInt(document.getElementById('cop-num').value)||0)*prezzoC;
+  const scontoTipo=document.getElementById('m-sconto-tipo').value;
+  const scontoVal=parseFloat(String(document.getElementById('m-sconto-imp').value).replace(',','.'))||0;
+  const sconto=scontoTipo==='pct'?Math.min(sub,sub*scontoVal/100):Math.min(sub,scontoVal);
+  const tot=Math.max(0,sub-sconto)+cop;
+  document.getElementById('m-subtotale').textContent='€ '+fmt(sub);
+  document.getElementById('m-coperto').textContent='€ '+fmt(cop);
+  document.getElementById('m-totale').textContent='€ '+fmt(tot);
+  const sr=document.getElementById('m-sconto-row');
+  if(sconto>0){ sr.style.display='flex'; document.getElementById('m-sconto-val').textContent='− € '+fmt(sconto); }
+  else sr.style.display='none';
+  // Aggiorna coperto nel tavolo
+  tavoli[selTavolo].coperto=parseInt(document.getElementById('cop-num').value)||0;
+}
+
+function getTotale(){
+  if(!selTavolo) return 0;
+  const t=tavoli[selTavolo];
+  const sub=(t.items||[]).reduce((s,i)=>s+i.price*i.qty,0);
+  const cop=(t.coperto||0)*prezzoC;
+  const scontoTipo=document.getElementById('m-sconto-tipo').value;
+  const scontoVal=parseFloat(String(document.getElementById('m-sconto-imp').value).replace(',','.'))||0;
+  const sconto=scontoTipo==='pct'?Math.min(sub,sub*scontoVal/100):Math.min(sub,scontoVal);
+  return Math.max(0,sub-sconto)+cop;
+}
+
+function liberaTavolo(){
+  if(!selTavolo) return;
+  if(!confirm('Liberare il tavolo senza incassare?')) return;
+  tavoli[selTavolo]={items:[],orario:null,coperto:0};
+  pushTavoli();
+  selTavolo=null;
+  renderTavoli();
+  goScreen('tavoli');
+}
+
+// ── PRODOTTI ─────────────────────────────────────────────────────
+const CAT_ICON={"Birre alla Spina":"🍺","Birre in Bottiglia":"🍾","Birre Artigianali":"🏺","Cocktail":"🍹","Superalcolici":"🥃","Vini Rossi":"🍷","Vini Bianchi":"🥂","Vini Rosati":"🌸","Vini Spumanti":"🫧","Analcolici":"🧃","Caffetteria":"☕","Hamburger":"🍔","Panini":"🥖","Pizze Rosse":"🍕","Pizze Bianche":"🫓","Stuzzichini & Antipasti":"🧆","Dolci & Dessert":"🍰","Cucina & Altro":"🍽️","Taglieri":"🧀","Tostoni":"🥪","Insalate":"🥗","Burgers":"🍔","Fritti":"🍟","Dolci":"🍰","Hot Dog & Salsicce":"🌭","Bibite":"🥤","Drinks & Cocktail":"🍹","Dopocena & Amari":"🥃","Grappe Locali":"🫙"};
+
+function renderProdotti(){
+  const lbl=String(selTavolo).startsWith('B')?'Banco '+String(selTavolo).slice(1):'Tavolo '+selTavolo;
+  document.getElementById('prod-tav-lbl').textContent=lbl;
+  const cats=[...new Set(prodotti.map(p=>p.cat))];
+  if(!currentCat) currentCat=cats[0]||'';
+  const bar=document.getElementById('cat-bar');
+  bar.innerHTML='';
+  cats.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='cat-btn'+(c===currentCat?' active':'');
+    b.textContent=(CAT_ICON[c]||'🍽️')+' '+c;
+    b.onclick=()=>{currentCat=c;searchQ='';document.getElementById('search-inp').value='';renderProdotti();};
+    bar.appendChild(b);
+  });
+  renderProdGrid();
+  aggiornaProdBadge();
+}
+
+function renderProdGrid(){
+  const q=searchQ.toLowerCase();
+  const lista=q?prodotti.filter(p=>p.name.toLowerCase().includes(q)):prodotti.filter(p=>p.cat===currentCat);
+  const grid=document.getElementById('prod-grid');
+  grid.innerHTML='';
+  lista.forEach(prod=>{
+    const inCart=cart.find(i=>i.name===prod.name)||(tavoli[selTavolo]?.items||[]).find(i=>i.name===prod.name);
+    const qty=inCart?inCart.qty:0;
+    const b=document.createElement('div');
+    b.className='btn-prod'+(qty>0?' in-cart':'');
+    b.innerHTML=`
+      <div class="p-body" onclick="addProd('${prod.name.replace(/'/g,"\'")}')">
+        <span class="pn">${prod.name}</span>
+        <span class="pp">€ ${fmt(prod.price)}</span>
+      </div>
+      <div class="p-footer">
+        <div class="p-qty-row">
+          <button class="pqbtn" onclick="event.stopPropagation();chCartQty('${prod.name.replace(/'/g,"\'")}', -1)">−</button>
+          <span class="pqnum ${qty===0?'zero':''}">${qty}</span>
+          <button class="pqbtn" onclick="event.stopPropagation();addProd('${prod.name.replace(/'/g,"\'")}')">+</button>
+        </div>
+      </div>`;
+    grid.appendChild(b);
+  });
+  const n=cart.reduce((s,i)=>s+i.qty,0);
+  const sb=document.getElementById('prod-send-bar');
+  sb.classList.toggle('show',n>0);
+  if(n>0) document.getElementById('btn-invia-prod').textContent=`📤 Invia a Cucina & Bar (${n} art.)`;
+}
+
+document.getElementById('search-inp').addEventListener('input',function(){
+  searchQ=this.value.trim(); renderProdGrid();
+});
+
+function addProd(name){
+  const prod=prodotti.find(p=>p.name===name);
+  if(!prod) return;
+  const ex=cart.find(i=>i.name===name);
+  if(ex) ex.qty++;
+  else cart.push({name:prod.name,price:prod.price,cat:prod.cat||'',qty:1});
+  aggiornaProdBadge(); renderProdGrid();
+}
+
+function chCartQty(name,d){
+  const idx=cart.findIndex(i=>i.name===name);
+  if(idx<0) return;
+  cart[idx].qty+=d;
+  if(cart[idx].qty<=0) cart.splice(idx,1);
+  aggiornaProdBadge(); renderProdGrid();
+}
+
+function aggiornaProdBadge(){
+  const n=cart.reduce((s,i)=>s+i.qty,0);
+  const el=document.getElementById('prod-cart-badge');
+  el.textContent=n?n+' art.':''; el.style.display=n?'inline':'none';
+}
+
+// Invia a cucina/bar E aggiunge al conto
+async function inviaEAggiungi(){
+  if(!selTavolo||!cart.length) return;
+  const btn=document.getElementById('btn-invia-prod');
+  btn.disabled=true; btn.textContent='⏳ Invio...';
+  const lbl=String(selTavolo).startsWith('B')?'Banco '+String(selTavolo).slice(1):'Tavolo '+selTavolo;
+  const gi=new Date().toISOString();
+
+  // 1. Aggiungi al conto locale
+  cart.forEach(item=>{
+    const ex=(tavoli[selTavolo].items||[]).find(i=>i.name===item.name);
+    if(ex) ex.qty+=item.qty;
+    else {if(!tavoli[selTavolo].items) tavoli[selTavolo].items=[]; tavoli[selTavolo].items.push({...item});}
+  });
+
+  // 2. Invia a cucina/bar
+  const records=cart.map(item=>{
+    const rep=CUCINA_CATS.includes(item.cat)?'cucina':BAR_CATS.includes(item.cat)?'bar':'cucina';
+    return {tavolo:String(selTavolo),tavolo_label:lbl,reparto:rep,articolo:item.name,quantita:item.qty,gruppo_invio:gi,stato:'attesa'};
+  });
+
+  try{
+    await supa.from('ordini_cucina').insert(records);
+    pushTavoli();
+    cart=[];
+    btn.textContent='✅ Inviato!'; btn.classList.add('sent');
+    setTimeout(()=>{btn.textContent='📤 Invia a Cucina & Bar';btn.classList.remove('sent');btn.disabled=false;},2500);
+    renderProdGrid(); aggiornaProdBadge(); renderConto();
+  }catch(e){
+    alert('Errore: '+e.message);
+    btn.textContent='📤 Invia a Cucina & Bar'; btn.disabled=false;
+  }
+}
+
+// ── PAGAMENTO ─────────────────────────────────────────────────────
+let selPagamento=null;
+
+function openPagamento(){
+  const tot=getTotale();
+  if(tot<=0){ alert('Nessun importo da incassare'); return; }
+  document.getElementById('pay-tot-lbl').textContent='€ '+fmt(tot);
+  document.getElementById('pay-ricevuto').value='';
+  document.getElementById('resto-row').style.display='none';
+  document.getElementById('contanti-row').style.display='none';
+  document.getElementById('btn-conferma-pag').disabled=true;
+  selPagamento=null;
+  document.querySelectorAll('.pay-btn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('modal-pag').classList.add('open');
+}
+
+function closePagamento(){ document.getElementById('modal-pag').classList.remove('open'); }
+
+function selPay(tipo,btn){
+  selPagamento=tipo;
+  document.querySelectorAll('.pay-btn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  document.getElementById('contanti-row').style.display=tipo==='Contanti'?'block':'none';
+  if(tipo!=='Contanti') document.getElementById('resto-row').style.display='none';
+  document.getElementById('btn-conferma-pag').disabled=false;
+}
+
+function calcResto(){
+  const tot=getTotale();
+  const ric=parseFloat(String(document.getElementById('pay-ricevuto').value).replace(',','.'))||0;
+  const resto=ric-tot;
+  const rr=document.getElementById('resto-row');
+  if(ric>0){ rr.style.display='flex'; document.getElementById('pay-resto').textContent='€ '+fmt(Math.max(0,resto)); }
+  else rr.style.display='none';
+}
+
+async function confermaPagamento(){
+  if(!selTavolo||!selPagamento) return;
+  const t=tavoli[selTavolo];
+  const sub=(t.items||[]).reduce((s,i)=>s+i.price*i.qty,0);
+  const cop=(t.coperto||0)*prezzoC;
+  const scontoTipo=document.getElementById('m-sconto-tipo').value;
+  const scontoVal=parseFloat(String(document.getElementById('m-sconto-imp').value).replace(',','.'))||0;
+  const sconto=scontoTipo==='pct'?Math.min(sub,sub*scontoVal/100):Math.min(sub,scontoVal);
+  const tot=Math.max(0,sub-sconto)+cop;
+  const ric=parseFloat(String(document.getElementById('pay-ricevuto').value).replace(',','.'))||tot;
+
+  const now=new Date();
+  const scontrino={
+    id:Date.now(),
+    tavolo:String(selTavolo),
+    data:now.toISOString().slice(0,10),
+    giorno:now.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
+    orario_apertura:t.orario||'',
+    orario_chiusura:now.toLocaleTimeString('it-IT'),
+    persone:t.coperto||0,
+    coperto_tot:cop,
+    subtotale:sub,
+    sconto:sconto,
+    totale:tot,
+    pagamento:selPagamento,
+    ricevuto:ric,
+    resto:Math.max(0,ric-tot),
+    items:[...(t.items||[])]
+  };
+
+  // Salva su Supabase
+  try{
+    await supa.from('bar_archivio').upsert({
+      id:scontrino.id, tavolo:scontrino.tavolo, data:scontrino.data,
+      giorno:scontrino.giorno, orario_apertura:scontrino.orario_apertura,
+      orario_chiusura:scontrino.orario_chiusura, persone:scontrino.persone,
+      coperto_tot:cop, subtotale:sub, totale:tot, pagamento:selPagamento,
+      ricevuto:ric, resto:scontrino.resto, sconto:sconto, items:t.items||[]
+    },{onConflict:'id'});
+  }catch(e){ console.warn('Archivio non salvato:', e.message); }
+
+  // Libera tavolo
+  tavoli[selTavolo]={items:[],orario:null,coperto:0};
+  await supa.from('tavoli_stato').upsert({id:String(selTavolo),stato:tavoli[selTavolo],aggiornato_il:new Date().toISOString()},{onConflict:'id'});
+
+  closePagamento();
+  selTavolo=null;
+  renderTavoli();
+  goScreen('tavoli');
+  document.getElementById('m-sconto-imp').value='0';
+}
+
+// ── PRECONTO ──────────────────────────────────────────────────────
+function stampaPreconto(){
+  if(!selTavolo) return;
+  const t=tavoli[selTavolo];
+  if(!t.items||!t.items.length){ alert('Nessun articolo'); return; }
+  const lbl=String(selTavolo).startsWith('B')?'Banco '+String(selTavolo).slice(1):'Tavolo '+selTavolo;
+  const sub=t.items.reduce((s,i)=>s+i.price*i.qty,0);
+  const cop=(t.coperto||0)*prezzoC;
+  const tot=sub+cop;
+  const win=window.open('','_blank','width=400,height=650');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Preconto</title>
+  <style>body{font-family:Arial,sans-serif;padding:16px;max-width:360px;margin:0 auto;}
+  h2{text-align:center;}table{width:100%;border-collapse:collapse;margin:14px 0;}
+  th{background:#1a1a2e;color:white;padding:6px;font-size:.78rem;}
+  td{padding:6px;border-bottom:1px solid #eee;font-size:.82rem;}
+  .tot{font-weight:900;font-size:1rem;text-align:right;padding:10px 0;border-top:2px solid #333;}
+  .badge{text-align:center;background:#fff9e6;border:2px dashed #f5a623;border-radius:8px;padding:6px;margin:10px 0;color:#b7791f;font-weight:700;font-size:.82rem;}
+  </style></head><body onload="window.print()">
+  <h2>🍺 ${lbl}</h2>
+  <div class="badge">📋 PRE-CONTO — non fiscale</div>
+  <table><thead><tr><th>Articolo</th><th>Qtà</th><th>Totale</th></tr></thead><tbody>
+  ${t.items.map(i=>`<tr><td>${i.name}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">€ ${fmt(i.price*i.qty)}</td></tr>`).join('')}
+  </tbody></table>
+  ${cop>0?`<div style="text-align:right;font-size:.82rem;">Coperto (${t.coperto}×€${fmt(prezzoC)}): € ${fmt(cop)}</div>`:''}
+  <div class="tot">TOTALE: € ${fmt(tot)}</div>
+  <div style="text-align:center;color:#aaa;font-size:.75rem;margin-top:12px;">Il tavolo rimane aperto</div>
+  </body></html>`);
+  win.document.close();
+}
+
+// ── SUPABASE SYNC ─────────────────────────────────────────────────
+async function pushTavoli(){
+  pushLock=true;
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(async()=>{
+    try{
+      const payload=Object.entries(tavoli).map(([id,stato])=>{return {id:String(id),stato,aggiornato_il:new Date().toISOString()};});
+      await supa.from('tavoli_stato').upsert(payload,{onConflict:'id'});
+    }catch(e){ console.warn('Push error:', e.message); }
+    finally{ setTimeout(()=>{pushLock=false;},1500); }
+  },600);
+}
+
+async function pullTavoli(){
+  if(pushLock) return;
+  try{
+    const{data}=await supa.from('tavoli_stato').select('id,stato');
+    if(!data) return;
+    let changed=false;
+    data.forEach(r=>{
+      if(tavoli[r.id]!==undefined){ tavoli[r.id]=r.stato||{items:[],orario:null,coperto:0}; changed=true; }
+    });
+    if(changed){ renderTavoli(); if(selTavolo) renderConto(); }
+    document.getElementById('sync-badge').className='s-ok'; document.getElementById('sync-badge').textContent='🟢';
+  }catch(e){
+    document.getElementById('sync-badge').className='s-err'; document.getElementById('sync-badge').textContent='🔴';
+  }
+}
+
+// Carica prodotti da Supabase se disponibili
+async function caricaProdotti(){
+  try{
+    const{data}=await supa.from('bar_prodotti').select('*').eq('attivo',true).order('ordine');
+    if(data&&data.length>0){
+      prodotti.length=0;
+      data.forEach(r=>prodotti.push({name:r.nome,price:parseFloat(r.prezzo),cat:r.categoria}));
+    }
+  }catch(e){}
+}
+
+// Carica prezzo coperto
+async function caricaImpostazioni(){
+  try{
+    const{data}=await supa.from('bar_impostazioni').select('valore').eq('chiave','prezzo_coperto').single();
+    if(data?.valore) prezzoC=parseFloat(data.valore)||2.0;
+    document.getElementById('cop-prezzo-m').textContent=fmt(prezzoC);
+  }catch(e){}
+}
+
+// Realtime
+supa.channel('mobile_cassa_rt')
+  .on('postgres_changes',{event:'*',schema:'public',table:'tavoli_stato'},p=>{
+    if(pushLock) return;
+    if(p.new&&p.new.id&&tavoli[p.new.id]!==undefined){
+      tavoli[p.new.id]=p.new.stato||{items:[],orario:null,coperto:0};
+      renderTavoli();
+      if(selTavolo&&String(selTavolo)===String(p.new.id)) renderConto();
+    }
+  })
+  .subscribe(s=>{
+    document.getElementById('sync-badge').className=s==='SUBSCRIBED'?'s-ok':'s-err';
+    document.getElementById('sync-badge').textContent=s==='SUBSCRIBED'?'🟢':'🔴';
+  });
+
+// Init
+pullTavoli();
+caricaProdotti();
+caricaImpostazioni();
+setInterval(pullTavoli,15000);
+</script>
+</body>
+</html>
